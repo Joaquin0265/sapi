@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Catálogo de productos | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<!-- ===================== Barra de navegación ===================== -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" href="#">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navPrincipal"
+                aria-controls="navPrincipal" aria-expanded="false" aria-label="Mostrar navegación">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navPrincipal">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link active" aria-current="page" href="#">Catálogo</a></li>
+                <li class="nav-item"><a class="nav-link disabled" href="#">Inventario</a></li>
+                <li class="nav-item"><a class="nav-link disabled" href="#">Despacho</a></li>
+                <li class="nav-item"><a class="nav-link disabled" href="#">Alertas</a></li>
+            </ul>
+            <span class="navbar-text small">
+                <i class="bi bi-person-circle me-1"></i> Panificadora San Antonio
+            </span>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <!-- ===================== Mensajes flash ===================== -->
+    <div th:if="${exito}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><span th:text="${exito}">Operación realizada.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><span th:text="${error}">Ocurrió un error.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+
+    <!-- ===================== Encabezado ===================== -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Catálogo de productos</h1>
+            <p class="text-body-secondary mb-0">
+                Productos activos con su política de reposición (stock mínimo) usada por el control preventivo.
+            </p>
+        </div>
+        <a class="btn btn-primary" th:href="@{/catalogo/nuevo}">
+            <i class="bi bi-plus-lg me-1"></i> Nuevo producto
+        </a>
+    </div>
+
+    <!-- ===================== Tarjeta principal ===================== -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <form class="row g-2 align-items-center" method="get" th:action="@{/catalogo}">
+                <div class="col-12 col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="search" class="form-control" name="q" th:value="${filtro}"
+                               placeholder="Buscar producto por nombre..." aria-label="Buscar producto">
+                    </div>
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button class="btn btn-outline-secondary w-100" type="submit">Buscar</button>
+                </div>
+                <div class="col-12 col-md-auto" th:if="${!#strings.isEmpty(filtro)}">
+                    <a class="btn btn-link text-decoration-none" th:href="@{/catalogo}">Limpiar filtro</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Producto</th>
+                    <th scope="col">Categoría</th>
+                    <th scope="col" class="text-center">Unidad</th>
+                    <th scope="col" class="text-end">Precio</th>
+                    <th scope="col" class="text-end">Stock mínimo</th>
+                    <th scope="col" class="text-center">Estado</th>
+                    <th scope="col" class="text-end">Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Estado vacío -->
+                <tr th:if="${#lists.isEmpty(productos)}">
+                    <td colspan="8" class="text-center text-body-secondary py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        No hay productos
+                        <span th:if="${!#strings.isEmpty(filtro)}">
+                            para el filtro <strong th:text="'“' + ${filtro} + '”'">“...”</strong>
+                        </span>.
+                        <div class="mt-3">
+                            <a class="btn btn-sm btn-outline-primary" th:href="@{/catalogo/nuevo}">
+                                <i class="bi bi-plus-lg me-1"></i> Registrar el primero
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Filas -->
+                <tr th:each="p : ${productos}">
+                    <td>
+                        <span class="badge text-bg-light border font-monospace" th:text="${p.codigo}">PAN-001</span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold" th:text="${p.nombre}">Pan francés</div>
+                        <small class="text-body-secondary d-block"
+                               th:if="${p.descripcion != null}" th:text="${p.descripcion}">Descripción</small>
+                    </td>
+                    <td th:text="${p.categoria.nombre}">Panadería</td>
+                    <td class="text-center" th:text="${p.unidadMedida.etiqueta}">Unidad</td>
+                    <td class="text-end"
+                        th:text="'S/ ' + ${#numbers.formatDecimal(p.precio, 1, 'POINT', 2, 'COMMA')}">S/ 0,30</td>
+                    <td class="text-end text-body-secondary"
+                        th:text="${#numbers.formatDecimal(p.stockMinimo, 1, 'POINT', 2, 'COMMA')}">200,00</td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${p.activo} ? 'text-bg-success' : 'text-bg-secondary'"
+                              th:text="${p.activo} ? 'Activo' : 'Inactivo'">Activo</span>
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary"
+                           th:href="@{/catalogo/{id}/editar(id=${p.id})}" title="Editar">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <form class="d-inline" method="post" th:if="${p.activo}"
+                              th:action="@{/catalogo/{id}/desactivar(id=${p.id})}"
+                              onsubmit="return confirm('¿Desactivar este producto? Se conservará su historial.');">
+                            <button class="btn btn-sm btn-outline-danger" type="submit" title="Desactivar">
+                                <i class="bi bi-slash-circle"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer bg-white text-body-secondary small py-3">
+            <i class="bi bi-info-circle me-1"></i>
+            <span th:text="${#lists.size(productos)}">0</span> producto(s) listado(s).
+            La baja de productos es lógica para no romper el historial de despachos.
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

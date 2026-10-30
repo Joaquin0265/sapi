@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${form.id == null} ? 'Nuevo producto | SAPI' : 'Editar producto | SAPI'">Nuevo producto | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/catalogo}">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <span class="navbar-text small text-truncate">Catálogo / Producto</span>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a class="text-decoration-none" th:href="@{/catalogo}">Catálogo</a></li>
+            <li class="breadcrumb-item active" aria-current="page"
+                th:text="${form.id == null} ? 'Nuevo producto' : 'Editar producto'">Nuevo producto</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9 col-xl-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5">
+
+                    <h1 class="h4 mb-1"
+                        th:text="${form.id == null} ? 'Registrar producto' : 'Editar producto'">Registrar producto</h1>
+                    <p class="text-body-secondary mb-4">
+                        Los campos marcados con <span class="text-danger">*</span> son obligatorios.
+                    </p>
+
+                    <form th:action="@{/catalogo/guardar}" th:object="${form}" method="post" novalidate>
+
+                        <!-- id oculto: null = alta, valor = edición -->
+                        <input type="hidden" th:field="*{id}">
+
+                        <!-- Errores globales (reglas de negocio: código duplicado, categoría inactiva, etc.)
+                             Debe ir DENTRO del form con th:object: #fields exige ese contexto. -->
+                        <div class="alert alert-danger d-flex gap-2" role="alert"
+                             th:if="${#fields.hasGlobalErrors()}">
+                            <i class="bi bi-exclamation-octagon-fill"></i>
+                            <div>
+                                <p class="mb-0" th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+
+                            <!-- Código -->
+                            <div class="col-12 col-md-4">
+                                <label for="codigo" class="form-label">
+                                    Código <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="codigo" class="form-control font-monospace text-uppercase"
+                                       th:field="*{codigo}" th:errorclass="is-invalid"
+                                       maxlength="20" placeholder="PAN-001">
+                                <div class="invalid-feedback" th:errors="*{codigo}">Código inválido</div>
+                                <div class="form-text">Se guarda en mayúsculas.</div>
+                            </div>
+
+                            <!-- Nombre -->
+                            <div class="col-12 col-md-8">
+                                <label for="nombre" class="form-label">
+                                    Nombre del producto <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="nombre" class="form-control"
+                                       th:field="*{nombre}" th:errorclass="is-invalid"
+                                       maxlength="120" placeholder="Pan francés">
+                                <div class="invalid-feedback" th:errors="*{nombre}">Nombre inválido</div>
+                            </div>
+
+                            <!-- Descripción -->
+                            <div class="col-12">
+                                <label for="descripcion" class="form-label">Descripción</label>
+                                <textarea id="descripcion" class="form-control" rows="2"
+                                          th:field="*{descripcion}" th:errorclass="is-invalid"
+                                          maxlength="250"
+                                          placeholder="Presentación, peso, observaciones de producción..."></textarea>
+                                <div class="invalid-feedback" th:errors="*{descripcion}">Descripción inválida</div>
+                            </div>
+
+                            <!-- Categoría -->
+                            <div class="col-12 col-md-6">
+                                <label for="categoriaId" class="form-label">
+                                    Categoría <span class="text-danger">*</span>
+                                </label>
+                                <select id="categoriaId" class="form-select"
+                                        th:field="*{categoriaId}" th:errorclass="is-invalid">
+                                    <option value="">— Seleccione una categoría —</option>
+                                    <option th:each="cat : ${categorias}"
+                                            th:value="${cat.id}"
+                                            th:text="${cat.nombre}">Panadería</option>
+                                </select>
+                                <div class="invalid-feedback" th:errors="*{categoriaId}">Categoría inválida</div>
+                            </div>
+
+                            <!-- Unidad de medida -->
+                            <div class="col-6 col-md-3">
+                                <label for="unidadMedida" class="form-label">
+                                    Unidad <span class="text-danger">*</span>
+                                </label>
+                                <select id="unidadMedida" class="form-select"
+                                        th:field="*{unidadMedida}" th:errorclass="is-invalid">
+                                    <option th:each="u : ${unidadesDisponibles}"
+                                            th:value="${u.name()}"
+                                            th:text="${u.etiqueta}">Unidad</option>
+                                </select>
+                                <div class="invalid-feedback" th:errors="*{unidadMedida}">Unidad inválida</div>
+                            </div>
+
+                            <!-- Estado -->
+                            <div class="col-6 col-md-3 d-flex align-items-end">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="activo" th:field="*{activo}">
+                                    <label class="form-check-label" for="activo">Producto activo</label>
+                                </div>
+                            </div>
+
+                            <!-- Precio -->
+                            <div class="col-12 col-md-4">
+                                <label for="precio" class="form-label">
+                                    Precio de venta (S/) <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">S/</span>
+                                    <input type="number" id="precio" class="form-control text-end"
+                                           th:field="*{precio}" th:errorclass="is-invalid"
+                                           step="0.01" min="0.01" placeholder="0.00">
+                                </div>
+                                <div class="invalid-feedback d-block" th:errors="*{precio}">Precio inválido</div>
+                            </div>
+
+                            <!-- Stock mínimo -->
+                            <div class="col-12 col-md-4">
+                                <label for="stockMinimo" class="form-label">
+                                    Stock mínimo <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="stockMinimo" class="form-control text-end"
+                                       th:field="*{stockMinimo}" th:errorclass="is-invalid"
+                                       step="0.01" min="0" placeholder="0.00">
+                                <div class="invalid-feedback" th:errors="*{stockMinimo}">Stock mínimo inválido</div>
+                                <div class="form-text">Punto de reorden que usa el módulo de Alertas.</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+                            <a class="btn btn-outline-secondary order-sm-1" th:href="@{/catalogo}">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button class="btn btn-primary order-sm-2" type="submit">
+                                <i class="bi bi-save me-1"></i>
+                                <span th:text="${form.id == null} ? 'Registrar producto' : 'Guardar cambios'">Registrar</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <p class="text-center text-body-secondary small mt-3 mb-0">
+                <i class="bi bi-shield-lock me-1"></i> La baja de productos es lógica (auditoría).
+            </p>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
