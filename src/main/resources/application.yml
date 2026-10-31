@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  profiles:
+    active: demo
   application:
     name: sapi
 
@@ -26,9 +28,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.OracleDialect
-        format_sql: true
+        "[format_sql]": true
         jdbc:
-          time_zone: America/Lima
+          "[time_zone]": America/Lima
 
   thymeleaf:
     cache: false
@@ -39,4 +41,4 @@ spring:
 
 logging:
   level:
-    com.panificadora.sapi: DEBUG
+    "[com.panificadora.sapi]": DEBUG
