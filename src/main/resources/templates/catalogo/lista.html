@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,7 +24,11 @@
                 <li class="nav-item"><a class="nav-link active" aria-current="page" href="#">Catálogo</a></li>
                 <li class="nav-item"><a class="nav-link disabled" href="#">Inventario</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/despacho}">Despacho</a></li>
-                <li class="nav-item"><a class="nav-link disabled" href="#">Alertas</a></li>
+
+                <!-- Botón protegido: Solo visible para el Administrador -->
+                <li class="nav-item" sec:authorize="hasAuthority('Administrador')">
+                    <a class="nav-link text-warning fw-bold" href="#">Configurar Umbral de Seguridad</a>
+                </li>
             </ul>
             <span class="navbar-text small">
                 <i class="bi bi-person-circle me-1"></i> Panificadora San Antonio

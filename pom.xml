@@ -45,7 +45,26 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        
+        <!-- Spring Security: Maneja el login, sesiones y validación de perfiles -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
 
+        <!-- Thymeleaf Security: Permite ocultar o mostrar botones en el HTML según el rol -->
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
+
+        <!-- Spring Security Test: Necesario para ejecutar tus pruebas unitarias de encriptación y credenciales -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        
         <!-- Driver Oracle (la versión la gestiona el BOM de Spring Boot) -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
