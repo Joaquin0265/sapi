@@ -1,5 +1,7 @@
 server:
-  port: 8080
+  # 8090 para no chocar con otros proyectos locales que usan 8080.
+  # Se puede sobreescribir con la variable de entorno SERVER_PORT.
+  port: ${SERVER_PORT:8090}
 
 spring:
   profiles:

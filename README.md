@@ -78,7 +78,7 @@ Funcionalidad:
 mvn spring-boot:run -Dspring-boot.run.profiles=demo
 ```
 
-Luego abrir <http://localhost:8080/catalogo>.
+Luego abrir <http://localhost:8090/catalogo>.
 
 ### Con Oracle
 
