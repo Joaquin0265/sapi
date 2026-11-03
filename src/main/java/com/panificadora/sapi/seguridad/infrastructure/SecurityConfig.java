@@ -1,15 +1,24 @@
 package com.panificadora.sapi.seguridad.infrastructure;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+
+import java.io.IOException;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -20,34 +29,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/css/**", "/js/**").permitAll()
-                        .requestMatchers("/configurar-umbral").hasAuthority("Administrador")
-                        .requestMatchers("/catalogo/insumos/*/umbral").hasAuthority("Administrador")
-                        .anyRequest().authenticated())
-                .formLogin(form -> form
-                        .defaultSuccessUrl("/catalogo", true)
-                        .permitAll())
-                .logout(logout -> logout.permitAll());
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/css/**", "/js/**", "/login").permitAll()
+                .requestMatchers("/configurar-umbral", "/catalogo/insumos/*/umbral").hasAuthority("ADMINISTRADOR")
+                .requestMatchers("/catalogo/**").hasAuthority("ADMINISTRADOR")
+                .requestMatchers("/despacho/**").hasAuthority("OPERARIO_ALMACEN")
+                .anyRequest().authenticated()
+            )
+            .formLogin(form -> form
+                .loginPage("/login")
+                .successHandler(loginSuccessHandler())
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutSuccessUrl("/login?logout")
+                .permitAll()
+            );
         return http.build();
     }
 
     @Bean
-    public org.springframework.security.core.userdetails.UserDetailsService userDetailsService(PasswordEncoder encoder) {
-        // Creamos un usuario Administrador
-        org.springframework.security.core.userdetails.UserDetails admin = org.springframework.security.core.userdetails.User.builder()
-            .username("admin")
-            .password(encoder.encode("admin123"))
-            .authorities("Administrador")
-            .build();
-            
-        // Creamos un usuario Operario
-        org.springframework.security.core.userdetails.UserDetails operario = org.springframework.security.core.userdetails.User.builder()
-            .username("operario")
-            .password(encoder.encode("operario123"))
-            .authorities("OperarioAlmacen")
-            .build();
-            
-        return new org.springframework.security.provisioning.InMemoryUserDetailsManager(admin, operario);
+    public AuthenticationSuccessHandler loginSuccessHandler() {
+        return new AuthenticationSuccessHandler() {
+            @Override
+            public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+                                                Authentication authentication) throws IOException, ServletException {
+                // Redirección inteligente según el rol del usuario autenticado
+                boolean isAdmin = authentication.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ADMINISTRADOR"));
+
+                if (isAdmin) {
+                    response.sendRedirect("/catalogo");
+                } else {
+                    response.sendRedirect("/despacho");
+                }
+            }
+        };
     }
 }
