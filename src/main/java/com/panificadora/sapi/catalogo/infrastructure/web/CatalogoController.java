@@ -1,13 +1,17 @@
 package com.panificadora.sapi.catalogo.infrastructure.web;
 
 import com.panificadora.sapi.catalogo.application.dto.ProductoForm;
+import com.panificadora.sapi.catalogo.application.dto.UmbralForm;
 import com.panificadora.sapi.catalogo.application.service.CatalogoService;
 import com.panificadora.sapi.catalogo.domain.exception.ReglaNegocioException;
 import com.panificadora.sapi.catalogo.domain.model.Producto;
+import com.panificadora.sapi.catalogo.domain.model.UmbralSeguridad;
 import com.panificadora.sapi.catalogo.domain.model.UnidadMedida;
 import jakarta.validation.Valid;
 import java.beans.PropertyEditorSupport;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
@@ -17,6 +21,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -49,6 +54,56 @@ public class CatalogoController {
         model.addAttribute("productos", catalogoService.listarProductos(q));
         model.addAttribute("filtro", q == null ? "" : q.trim());
         return "catalogo/lista";
+    }
+
+    /**
+     * Pantalla del propietario: buscador de insumos + umbral vigente de cada uno.
+     * El formulario de edición vive en un modal de la misma página.
+     */
+    @GetMapping("/insumos")
+    public String listarInsumos(@RequestParam(name = "q", required = false) String q, Model model) {
+        model.addAttribute("insumos", catalogoService.listarInsumos(q));
+        model.addAttribute("filtro", q == null ? "" : q.trim());
+        return "catalogo/insumos";
+    }
+
+    /**
+     * Configura el umbral de un insumo (RF-01 / RF-02).
+     *
+     * <p>El controlador solo valida el formato del formulario y delega la regla
+     * de negocio (crítico &lt; mínimo) en {@link CatalogoService}. Responde con
+     * POST-Redirect-GET para que refrescar no reenvíe el formulario.</p>
+     */
+    @PostMapping("/insumos/{id}/umbral")
+    public String configurarUmbral(@PathVariable Long id,
+                                   @Valid @ModelAttribute("umbralForm") UmbralForm form,
+                                   BindingResult resultado,
+                                   @RequestParam(name = "q", required = false) String q,
+                                   RedirectAttributes flash) {
+
+        if (resultado.hasErrors()) {
+            String mensaje = resultado.getAllErrors().stream()
+                    .findFirst()
+                    .map(ObjectError::getDefaultMessage)
+                    .orElse("Revise los valores del umbral.");
+            flash.addFlashAttribute("error", mensaje);
+            return "redirect:/catalogo/insumos" + sufijoFiltro(q);
+        }
+
+        try {
+            UmbralSeguridad umbral = catalogoService.registrarUmbral(
+                    id, form.getStockMinimo(), form.getStockCritico());
+            flash.addFlashAttribute("exito",
+                    "Umbral actualizado. Mínimo: " + umbral.getStockMinimo().toPlainString()
+                            + " · Crítico: " + umbral.getStockCritico().toPlainString() + ".");
+        } catch (ReglaNegocioException ex) {
+            flash.addFlashAttribute("error", ex.getMessage());
+        } catch (DataIntegrityViolationException ex) {
+            // Respaldo: si otra sesión viola CHK_UMBRALES, la BD también protege.
+            flash.addFlashAttribute("error",
+                    "No se pudo guardar el umbral: el stock crítico debe ser menor que el mínimo.");
+        }
+        return "redirect:/catalogo/insumos" + sufijoFiltro(q);
     }
 
     /* ---------------------------------------------------------------- */
@@ -139,6 +194,11 @@ public class CatalogoController {
     private void cargarCombos(Model model) {
         model.addAttribute("categorias", catalogoService.listarCategorias());
         model.addAttribute("unidades", UnidadMedida.values());
+    }
+
+    /** Conserva el texto de búsqueda al volver del POST del modal. */
+    private String sufijoFiltro(String q) {
+        return (q == null || q.isBlank()) ? "" : "?q=" + URLEncoder.encode(q.trim(), StandardCharsets.UTF_8);
     }
 
     /**

@@ -23,6 +23,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**").permitAll()
                         .requestMatchers("/configurar-umbral").hasAuthority("Administrador")
+                        .requestMatchers("/catalogo/insumos/*/umbral").hasAuthority("Administrador")
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .defaultSuccessUrl("/catalogo", true)

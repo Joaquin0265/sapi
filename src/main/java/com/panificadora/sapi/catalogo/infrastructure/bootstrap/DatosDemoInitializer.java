@@ -1,10 +1,14 @@
 package com.panificadora.sapi.catalogo.infrastructure.bootstrap;
 
 import com.panificadora.sapi.catalogo.domain.model.Categoria;
+import com.panificadora.sapi.catalogo.domain.model.Insumo;
 import com.panificadora.sapi.catalogo.domain.model.Producto;
+import com.panificadora.sapi.catalogo.domain.model.UmbralSeguridad;
 import com.panificadora.sapi.catalogo.domain.model.UnidadMedida;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.CategoriaRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.UmbralSeguridadRepository;
 import com.panificadora.sapi.inventario.domain.model.Lote;
 import com.panificadora.sapi.inventario.domain.model.Movimiento;
 import com.panificadora.sapi.inventario.domain.model.TipoMovimiento;
@@ -18,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Datos de ejemplo SOLO para el perfil "demo" (H2 en memoria).
@@ -30,15 +35,23 @@ public class DatosDemoInitializer implements CommandLineRunner {
 
     private final CategoriaRepository categoriaRepository;
     private final ProductoRepository productoRepository;
+    private final InsumoRepository insumoRepository;
+    private final UmbralSeguridadRepository umbralSeguridadRepository;
     private final MovimientoRepository movimientoRepository;
     private final LoteRepository loteRepository;
 
     @Override
+    @Transactional
     public void run(String... args) {
-        if (categoriaRepository.count() > 0) {
-            return;
+        if (categoriaRepository.count() == 0) {
+            sembrarCatalogoDeVenta();
         }
+        if (insumoRepository.count() == 0) {
+            sembrarInsumosYUmbrales();
+        }
+    }
 
+    private void sembrarCatalogoDeVenta() {
         Categoria panaderia = categoriaRepository.save(Categoria.builder()
                 .nombre("Panadería")
                 .descripcion("Panes de sal y de dulce del día")
@@ -149,5 +162,70 @@ public class DatosDemoInitializer implements CommandLineRunner {
                         .build()
         );
         loteRepository.saveAll(lotesDemo);
+    }
+
+    private void sembrarInsumosYUmbrales() {
+        Categoria insumos = categoriaRepository.findByActivoTrueOrderByNombreAsc().stream()
+                .filter(c -> "Insumos".equalsIgnoreCase(c.getNombre()))
+                .findFirst()
+                .orElseGet(() -> categoriaRepository.save(Categoria.builder()
+                        .nombre("Insumos")
+                        .descripcion("Materia prima de producción")
+                        .build()));
+
+        Insumo harina = insumoRepository.save(Insumo.builder()
+                .codigo("HAR-001")
+                .nombre("Harina Especial")
+                .descripcion("Saco de 50 kg para producción diaria")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+        guardarUmbral(harina, "50.00", "20.00");
+
+        Insumo azucar = insumoRepository.save(Insumo.builder()
+                .codigo("AZU-001")
+                .nombre("Azúcar rubia")
+                .descripcion("Saco de 50 kg")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+        guardarUmbral(azucar, "30.00", "10.00");
+
+        Insumo levadura = insumoRepository.save(Insumo.builder()
+                .codigo("LEV-001")
+                .nombre("Levadura fresca")
+                .descripcion("Bloque de 1 kg, conservar en frío")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+        guardarUmbral(levadura, "10.00", "4.00");
+
+        Insumo manteca = insumoRepository.save(Insumo.builder()
+                .codigo("MAN-001")
+                .nombre("Manteca vegetal")
+                .descripcion("Caja de 20 kg")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+        guardarUmbral(manteca, "15.00", "5.00");
+
+        // Este insumo queda sin umbral a propósito: la vista debe mostrar
+        // "Sin configurar" y permitir crearlo desde el modal.
+        insumoRepository.save(Insumo.builder()
+                .codigo("SAL-001")
+                .nombre("Sal industrial")
+                .descripcion("Saco de 25 kg")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+    }
+
+    private void guardarUmbral(Insumo insumo, String minimo, String critico) {
+        UmbralSeguridad umbral = umbralSeguridadRepository.save(UmbralSeguridad.builder()
+                .insumo(insumo)
+                .stockMinimo(new BigDecimal(minimo))
+                .stockCritico(new BigDecimal(critico))
+                .build());
+        insumo.setUmbral(umbral);
     }
 }

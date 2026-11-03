@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Insumos y umbrales | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<!-- ===================== Barra de navegación ===================== -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/catalogo}">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navPrincipal"
+                aria-controls="navPrincipal" aria-expanded="false" aria-label="Mostrar navegación">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navPrincipal">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link" th:href="@{/catalogo}">Catálogo</a></li>
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" th:href="@{/catalogo/insumos}">
+                        Insumos y umbrales
+                    </a>
+                </li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/despacho}">Despacho</a></li>
+            </ul>
+            <span class="navbar-text small" sec:authorize="isAuthenticated()">
+                <i class="bi bi-person-circle me-1"></i><span sec:authentication="name">usuario</span>
+            </span>
+            <form class="d-inline ms-lg-3" th:action="@{/logout}" method="post"
+                  sec:authorize="isAuthenticated()">
+                <button class="btn btn-sm btn-outline-light" type="submit">
+                    <i class="bi bi-box-arrow-right me-1"></i> Salir
+                </button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <!-- ===================== Mensajes flash ===================== -->
+    <div th:if="${exito}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><span th:text="${exito}">Umbral guardado.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><span th:text="${error}">Ocurrió un error.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+
+    <!-- ===================== Encabezado ===================== -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Insumos y umbrales de seguridad</h1>
+            <p class="text-body-secondary mb-0">
+                Configure desde aquí el punto de reorden y el nivel crítico de cada insumo.
+                El módulo de Alertas usará estos valores para avisar antes de un quiebre de stock.
+            </p>
+        </div>
+        <a class="btn btn-outline-secondary" th:href="@{/catalogo}">
+            <i class="bi bi-arrow-left me-1"></i> Volver al catálogo
+        </a>
+    </div>
+
+    <!-- ===================== Guía rápida para el propietario ===================== -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="badge text-bg-success mb-2">Stock mínimo</span>
+                    <p class="small text-body-secondary mb-0">
+                        Punto de reorden. Cuando el stock real baje de este valor, conviene reponer.
+                        Ejemplo: 50 kg de harina.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="badge text-bg-danger mb-2">Stock crítico</span>
+                    <p class="small text-body-secondary mb-0">
+                        Nivel de quiebre inminente. Debe ser <strong>menor</strong> que el mínimo.
+                        Ejemplo: 20 kg de harina.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="badge text-bg-light border mb-2">Regla del sistema</span>
+                    <p class="small text-body-secondary mb-0">
+                        <strong>Crítico &lt; Mínimo</strong>. Si intenta guardar un crítico igual o
+                        mayor, el sistema rechaza el cambio y no altera la base de datos.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== Tarjeta principal ===================== -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <form class="row g-2 align-items-center" method="get" th:action="@{/catalogo/insumos}">
+                <div class="col-12 col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="search" class="form-control" name="q" th:value="${filtro}"
+                               placeholder="Buscar insumo por nombre (ej. Harina Especial)..."
+                               aria-label="Buscar insumo">
+                    </div>
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button class="btn btn-outline-secondary w-100" type="submit">Buscar</button>
+                </div>
+                <div class="col-12 col-md-auto" th:if="${!#strings.isEmpty(filtro)}">
+                    <a class="btn btn-link text-decoration-none" th:href="@{/catalogo/insumos}">Limpiar filtro</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Insumo</th>
+                    <th scope="col">Categoría</th>
+                    <th scope="col" class="text-center">Unidad</th>
+                    <th scope="col" class="text-end">Stock mínimo</th>
+                    <th scope="col" class="text-end">Stock crítico</th>
+                    <th scope="col" class="text-center">Umbral</th>
+                    <th scope="col" class="text-end">Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Estado vacío -->
+                <tr th:if="${#lists.isEmpty(insumos)}">
+                    <td colspan="8" class="text-center text-body-secondary py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        No hay insumos
+                        <span th:if="${!#strings.isEmpty(filtro)}">
+                            para el filtro <strong th:text="'“' + ${filtro} + '”'">“...”</strong>
+                        </span>.
+                    </td>
+                </tr>
+
+                <!-- Filas -->
+                <tr th:each="i : ${insumos}">
+                    <td>
+                        <span class="badge text-bg-light border font-monospace" th:text="${i.codigo}">HAR-001</span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold" th:text="${i.nombre}">Harina Especial</div>
+                        <small class="text-body-secondary d-block"
+                               th:if="${i.descripcion != null}" th:text="${i.descripcion}">Descripción</small>
+                    </td>
+                    <td th:text="${i.categoria.nombre}">Insumos</td>
+                    <td class="text-center" th:text="${i.unidadMedida.etiqueta}">Kilogramo</td>
+
+                    <td class="text-end">
+                        <span th:if="${i.umbral != null}" class="fw-semibold"
+                              th:text="${#numbers.formatDecimal(i.umbral.stockMinimo, 1, 'POINT', 2, 'COMMA')}">
+                            50,00
+                        </span>
+                        <span th:if="${i.umbral == null}" class="text-body-secondary">—</span>
+                    </td>
+                    <td class="text-end">
+                        <span th:if="${i.umbral != null}" class="fw-semibold text-danger"
+                              th:text="${#numbers.formatDecimal(i.umbral.stockCritico, 1, 'POINT', 2, 'COMMA')}">
+                            20,00
+                        </span>
+                        <span th:if="${i.umbral == null}" class="text-body-secondary">—</span>
+                    </td>
+                    <td class="text-center">
+                        <span th:if="${i.umbral != null}" class="badge text-bg-success">
+                            <i class="bi bi-check-circle me-1"></i>Configurado
+                        </span>
+                        <span th:if="${i.umbral == null}" class="badge text-bg-secondary">
+                            <i class="bi bi-dash-circle me-1"></i>Sin configurar
+                        </span>
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                th:attr="data-bs-target=|#umbralModal-${i.id}|"
+                                data-bs-toggle="modal"
+                                sec:authorize="hasAuthority('Administrador')">
+                            <i class="bi bi-sliders me-1"></i> Configurar umbral
+                        </button>
+                        <span class="text-body-secondary small" sec:authorize="!hasAuthority('Administrador')">
+                            <i class="bi bi-lock me-1"></i>Solo el propietario
+                        </span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer bg-white text-body-secondary small py-3">
+            <i class="bi bi-info-circle me-1"></i>
+            <span th:text="${#lists.size(insumos)}">0</span> insumo(s) listado(s).
+            El umbral se guarda con la restricción <code>CHK_UMBRALES</code>: el stock crítico siempre debe ser menor que el mínimo.
+        </div>
+    </div>
+</main>
+
+<!-- ===================== Modales (uno por insumo, solo Administrador) ===================== -->
+<th:block sec:authorize="hasAuthority('Administrador')">
+<div th:each="i : ${insumos}" class="modal fade"
+     th:id="|umbralModal-${i.id}|" tabindex="-1"
+     th:attr="aria-labelledby=|umbralModalLabel-${i.id}|" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form th:action="@{/catalogo/insumos/{id}/umbral(id=${i.id})}" method="post">
+                <input type="hidden" name="q" th:value="${filtro}">
+
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" th:id="|umbralModalLabel-${i.id}|">
+                        Configurar umbral
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="mb-1">
+                        <span class="badge text-bg-light border font-monospace me-1" th:text="${i.codigo}">HAR-001</span>
+                        <strong th:text="${i.nombre}">Harina Especial</strong>
+                    </p>
+                    <p class="text-body-secondary small mb-4" th:text="${i.categoria.nombre}">Insumos</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" th:for="|stockMinimo-${i.id}|">
+                            Stock mínimo (punto de reorden)
+                        </label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" step="0.01" min="0" required
+                                   th:id="|stockMinimo-${i.id}|" name="stockMinimo"
+                                   th:value="${i.umbral != null ? i.umbral.stockMinimo : 0}">
+                            <span class="input-group-text" th:text="${i.unidadMedida.etiqueta}">Kilogramo</span>
+                        </div>
+                        <div class="form-text">Cuando el stock real baje de este valor, se sugiere reponer.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" th:for="|stockCritico-${i.id}|">
+                            Stock crítico (quiebre inminente)
+                        </label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" step="0.01" min="0" required
+                                   th:id="|stockCritico-${i.id}|" name="stockCritico"
+                                   th:value="${i.umbral != null ? i.umbral.stockCritico : 0}">
+                            <span class="input-group-text" th:text="${i.unidadMedida.etiqueta}">Kilogramo</span>
+                        </div>
+                        <div class="form-text text-danger-emphasis">
+                            Debe ser estrictamente menor que el stock mínimo.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Guardar umbral
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</th:block>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

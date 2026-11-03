@@ -43,13 +43,13 @@ Reglas del proyecto:
 
 | Artefacto | Ruta |
 |---|---|
-| Entidades | `catalogo/domain/model/{Producto,Categoria,UnidadMedida}.java` |
+| Entidades | `catalogo/domain/model/{Producto,Categoria,Insumo,UmbralSeguridad,UnidadMedida}.java` |
 | Servicio | `catalogo/application/service/CatalogoService.java` |
-| DTO de formulario | `catalogo/application/dto/ProductoForm.java` |
+| DTO de formulario | `catalogo/application/dto/{ProductoForm,UmbralForm}.java` |
 | Repositorios | `catalogo/infrastructure/persistence/` |
 | Controlador | `catalogo/infrastructure/web/CatalogoController.java` |
-| Vistas | `src/main/resources/templates/catalogo/{lista,formulario}.html` |
-| Scripts Oracle | `db/01_schema_oracle.sql`, `db/02_data_oracle.sql` |
+| Vistas | `src/main/resources/templates/catalogo/{lista,formulario,insumos}.html` |
+| Scripts Oracle | `db/01_schema_oracle.sql`, `db/02_data_oracle.sql`, `db/03_schema_insumos_oracle.sql`, `db/04_data_insumos_oracle.sql` |
 
 Funcionalidad:
 
@@ -58,6 +58,10 @@ Funcionalidad:
 - SKU normalizado a mayúsculas y validado como único.
 - Política de reposición (`stock_minimo`) que consumirá el módulo de Alertas.
 - Baja lógica y reactivación.
+- **Insumos y umbrales (RF-01 / RF-02):** pantalla de búsqueda de insumos y modal para
+  configurar `stock_minimo` y `stock_critico`. La regla **crítico < mínimo** se valida en
+  `CatalogoService#registrarUmbral` (lanza `ReglaNegocioException`) y también en la base de
+  datos con `CHK_UMBRALES`.
 
 ### Rutas
 
@@ -69,6 +73,8 @@ Funcionalidad:
 | POST | `/catalogo/guardar` | Alta/edición (POST-Redirect-GET) |
 | POST | `/catalogo/{id}/desactivar` | Baja lógica |
 | POST | `/catalogo/{id}/reactivar` | Reactivación |
+| GET | `/catalogo/insumos?q=` | Insumos + umbral vigente (buscador) |
+| POST | `/catalogo/insumos/{id}/umbral` | Configurar umbral (solo Administrador, PRG) |
 
 ## Módulo Inventario · Gestión FIFO e Ingreso de Lotes (Asignación 3)
 
@@ -151,6 +157,8 @@ Luego abrir <http://localhost:8090/catalogo> o <http://localhost:8090/inventario
 ```bash
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/01_schema_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/02_data_oracle.sql
+sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/03_schema_insumos_oracle.sql
+sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/04_data_insumos_oracle.sql
 mvn spring-boot:run
 ```
 

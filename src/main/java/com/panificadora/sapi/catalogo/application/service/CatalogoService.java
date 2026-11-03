@@ -3,10 +3,14 @@ package com.panificadora.sapi.catalogo.application.service;
 import com.panificadora.sapi.catalogo.application.dto.ProductoForm;
 import com.panificadora.sapi.catalogo.domain.exception.ReglaNegocioException;
 import com.panificadora.sapi.catalogo.domain.model.Categoria;
+import com.panificadora.sapi.catalogo.domain.model.Insumo;
 import com.panificadora.sapi.catalogo.domain.model.Producto;
+import com.panificadora.sapi.catalogo.domain.model.UmbralSeguridad;
 import com.panificadora.sapi.catalogo.domain.model.UnidadMedida;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.CategoriaRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.UmbralSeguridadRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
@@ -28,6 +32,8 @@ public class CatalogoService {
 
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
+    private final InsumoRepository insumoRepository;
+    private final UmbralSeguridadRepository umbralSeguridadRepository;
 
     // ------------------------------------------------------------------
     // Consultas
@@ -51,6 +57,18 @@ public class CatalogoService {
     public Producto obtenerProducto(Long id) {
         return productoRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ReglaNegocioException("El producto solicitado no existe o está inactivo."));
+    }
+
+    public List<Insumo> listarInsumos(String filtro) {
+        if (filtro == null || filtro.isBlank()) {
+            return insumoRepository.findByActivoTrueOrderByNombreAsc();
+        }
+        return insumoRepository.findByActivoTrueAndNombreContainingIgnoreCaseOrderByNombreAsc(filtro.trim());
+    }
+
+    public Insumo obtenerInsumo(Long id) {
+        return insumoRepository.findByIdAndActivoTrue(id)
+                .orElseThrow(() -> new ReglaNegocioException("El insumo solicitado no existe o está inactivo."));
     }
 
     // ------------------------------------------------------------------
@@ -140,6 +158,44 @@ public class CatalogoService {
         producto.reactivar();
     }
 
+    /**
+     * Registra o actualiza el umbral de seguridad de un insumo (RF-01 / RF-02).
+     *
+     * <p>Regla de negocio: {@code stockCritico} debe ser estrictamente menor que
+     * {@code stockMinimo}. Si se viola, no se toca la base de datos: se lanza
+     * {@link ReglaNegocioException} para que el adaptador web muestre el mensaje
+     * al propietario.</p>
+     *
+     * <p>Es idempotente: si el insumo ya tenía umbral, lo actualiza; si no,
+     * lo crea. Así el botón "Guardar" del modal sirve tanto para configurar por
+     * primera vez como para corregir valores.</p>
+     */
+    @Transactional
+    public UmbralSeguridad registrarUmbral(Long idInsumo, BigDecimal stockMinimo, BigDecimal stockCritico) {
+        if (idInsumo == null) {
+            throw new ReglaNegocioException("Debe indicar el insumo al que pertenece el umbral.");
+        }
+        validarRangoUmbral(stockMinimo, stockCritico);
+
+        Insumo insumo = insumoRepository.findByIdAndActivoTrue(idInsumo)
+                .orElseThrow(() -> new ReglaNegocioException(
+                        "El insumo solicitado no existe o está inactivo."));
+
+        UmbralSeguridad umbral = umbralSeguridadRepository.findByInsumoId(idInsumo)
+                .orElseGet(() -> UmbralSeguridad.builder().insumo(insumo).build());
+
+        umbral.setStockMinimo(stockMinimo);
+        umbral.setStockCritico(stockCritico);
+
+        UmbralSeguridad guardado = umbralSeguridadRepository.save(umbral);
+
+        // Mantiene coherentes ambos lados de la relación 1:1 en memoria.
+        if (insumo.getUmbral() != guardado) {
+            insumo.setUmbral(guardado);
+        }
+        return guardado;
+    }
+
     // ------------------------------------------------------------------
     // Reglas internas
     // ------------------------------------------------------------------
@@ -169,6 +225,27 @@ public class CatalogoService {
         }
         if (form.getStockMinimo() == null || form.getStockMinimo().compareTo(BigDecimal.ZERO) < 0) {
             throw new ReglaNegocioException("El stock mínimo no puede ser negativo.");
+        }
+    }
+
+    /**
+     * Validación de código de la restricción {@code CHK_UMBRALES}.
+     * El mensaje es explícito porque lo lee directamente el propietario en la vista.
+     */
+    private void validarRangoUmbral(BigDecimal stockMinimo, BigDecimal stockCritico) {
+        if (stockMinimo == null || stockCritico == null) {
+            throw new ReglaNegocioException("Debe indicar el stock mínimo y el stock crítico.");
+        }
+        if (stockMinimo.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ReglaNegocioException("El stock mínimo no puede ser negativo.");
+        }
+        if (stockCritico.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ReglaNegocioException("El stock crítico no puede ser negativo.");
+        }
+        if (stockCritico.compareTo(stockMinimo) >= 0) {
+            throw new ReglaNegocioException(
+                    "El stock crítico (" + stockCritico.toPlainString() + ") debe ser menor que el stock mínimo ("
+                            + stockMinimo.toPlainString() + ").");
         }
     }
 
