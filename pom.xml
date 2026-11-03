@@ -19,6 +19,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- JDK 23+ desactiva el procesamiento de anotaciones por defecto; Lombok lo necesita. -->
+        <maven.compiler.proc>full</maven.compiler.proc>
     </properties>
 
     <dependencies>

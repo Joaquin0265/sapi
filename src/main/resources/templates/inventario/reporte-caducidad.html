@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reporte de caducidad | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/catalogo}">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <div class="navbar-nav">
+            <a class="nav-link" th:href="@{/catalogo}">Catálogo</a>
+            <a class="nav-link" th:href="@{/inventario/ingreso}">Ingreso de lotes</a>
+            <a class="nav-link" th:href="@{/inventario/lotes}">Lotes FIFO</a>
+            <a class="nav-link active" aria-current="page" th:href="@{/inventario/reporte-caducidad}">Reporte de caducidad</a>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Reporte de caducidad</h1>
+            <p class="text-body-secondary mb-0">
+                Lotes con saldo que vencen dentro del umbral indicado, incluidos los ya vencidos.
+            </p>
+        </div>
+        <a class="btn btn-outline-primary" th:href="@{/inventario/lotes}">
+            <i class="bi bi-list-ol me-1"></i> Ver lotes FIFO
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <form class="row g-2 align-items-end" method="get" th:action="@{/inventario/reporte-caducidad}">
+                <div class="col-12 col-sm-5 col-md-4 col-lg-3">
+                    <label for="dias" class="form-label small text-body-secondary mb-1">Umbral de días</label>
+                    <div class="input-group">
+                        <input type="number" id="dias" name="dias" class="form-control text-end"
+                               min="0" max="3650" th:value="${dias}">
+                        <span class="input-group-text">días</span>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search me-1"></i> Generar reporte
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <span class="text-body-secondary small">
+                        Fecha de corte: <strong th:text="${#temporals.format(hoy, 'dd/MM/yyyy')}">03/11/2026</strong>
+                    </span>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th scope="col">Insumo</th>
+                    <th scope="col">Lote</th>
+                    <th scope="col" class="text-end">Disponible</th>
+                    <th scope="col">Vencimiento</th>
+                    <th scope="col" class="text-center">Días restantes</th>
+                    <th scope="col" class="text-center">Estado</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(lotes)}">
+                    <td colspan="6" class="text-center text-body-secondary py-5">
+                        <i class="bi bi-check2-circle fs-2 d-block mb-2"></i>
+                        No hay lotes que vencen dentro de
+                        <strong th:text="${dias}">30</strong> día(s).
+                    </td>
+                </tr>
+
+                <tr th:each="lote : ${lotes}">
+                    <td>
+                        <div class="fw-semibold" th:text="${lote.nombreInsumo}">Harina de trigo</div>
+                        <small class="text-body-secondary font-monospace" th:text="${lote.codigoInsumo}">INS-001</small>
+                    </td>
+                    <td class="font-monospace"
+                        th:text="${lote.codigoLote != null} ? ${lote.codigoLote} : '—'">—</td>
+                    <td class="text-end"
+                        th:text="${#numbers.formatDecimal(lote.cantidadDisponible, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                    <td th:text="${#temporals.format(lote.fechaVencimiento, 'dd/MM/yyyy')}">—</td>
+                    <td class="text-center">
+                        <span th:if="${lote.diasRestantes >= 0}" th:text="${lote.diasRestantes}">0</span>
+                        <span th:if="${lote.diasRestantes < 0}"
+                              th:text="'Vencido hace ' + ${-lote.diasRestantes} + ' día(s)'">Vencido</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${lote.estado == 'VENCIDO'} ? 'text-bg-dark'
+                                               : (${lote.estado == 'VENCE HOY' || lote.estado == 'CRÍTICO'} ? 'text-bg-danger'
+                                               : (${lote.estado == 'POR VENCER'} ? 'text-bg-warning' : 'text-bg-success'))"
+                              th:text="${lote.estado}">POR VENCER</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer bg-white text-body-secondary small py-3">
+            <i class="bi bi-info-circle me-1"></i>
+            <span th:text="${#lists.size(lotes)}">0</span> lote(s) en el reporte.
+            Umbral aplicado: <strong th:text="${dias}">30</strong> día(s).
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

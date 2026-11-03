@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lotes vigentes FIFO | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/catalogo}">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <div class="navbar-nav">
+            <a class="nav-link" th:href="@{/catalogo}">Catálogo</a>
+            <a class="nav-link" th:href="@{/inventario/ingreso}">Ingreso de lotes</a>
+            <a class="nav-link active" aria-current="page" th:href="@{/inventario/lotes}">Lotes FIFO</a>
+            <a class="nav-link" th:href="@{/inventario/reporte-caducidad}">Reporte de caducidad</a>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <div th:if="${exito}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><span th:text="${exito}">Operación realizada.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><span th:text="${error}">Ocurrió un error.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Lotes vigentes · orden FIFO</h1>
+            <p class="text-body-secondary mb-0">
+                Ordenados estrictamente por fecha de vencimiento ascendente (RN-01).
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-danger" th:href="@{/inventario/reporte-caducidad}">
+                <i class="bi bi-calendar-x me-1"></i> Reporte de caducidad
+            </a>
+            <a class="btn btn-primary" th:href="@{/inventario/ingreso}">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo ingreso
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <form class="row g-2 align-items-center" method="get" th:action="@{/inventario/lotes}">
+                <div class="col-12 col-md-6">
+                    <select class="form-select" name="idInsumo">
+                        <option value="">Todos los insumos</option>
+                        <option th:each="insumo : ${insumos}"
+                                th:value="${insumo.id}"
+                                th:selected="${idInsumo != null && idInsumo == insumo.id}"
+                                th:text="${insumo.codigo} + ' · ' + ${insumo.nombre}">
+                            INS-001 · Harina de trigo
+                        </option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button class="btn btn-outline-secondary w-100" type="submit">Filtrar</button>
+                </div>
+                <div class="col-12 col-md-auto" th:if="${idInsumo != null}">
+                    <a class="btn btn-link text-decoration-none" th:href="@{/inventario/lotes}">Limpiar filtro</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th scope="col" class="text-center"># FIFO</th>
+                    <th scope="col">Insumo</th>
+                    <th scope="col">Lote</th>
+                    <th scope="col" class="text-end">Disponible</th>
+                    <th scope="col">Ingreso</th>
+                    <th scope="col">Vencimiento</th>
+                    <th scope="col" class="text-center">Días restantes</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(lotes)}">
+                    <td colspan="7" class="text-center text-body-secondary py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        No hay lotes vigentes para el filtro seleccionado.
+                    </td>
+                </tr>
+
+                <tr th:each="lote, estado : ${lotes}">
+                    <td class="text-center">
+                        <span class="badge text-bg-primary" th:text="${estado.count}">1</span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold" th:text="${lote.insumo.nombre}">Harina de trigo</div>
+                        <small class="text-body-secondary font-monospace" th:text="${lote.insumo.codigo}">INS-001</small>
+                    </td>
+                    <td>
+                        <span class="font-monospace"
+                              th:text="${lote.codigoLote != null} ? ${lote.codigoLote} : '—'">—</span>
+                    </td>
+                    <td class="text-end"
+                        th:text="${#numbers.formatDecimal(lote.cantidadDisponible, 1, 'POINT', 2, 'COMMA')}">0,00</td>
+                    <td th:text="${#temporals.format(lote.fechaIngreso, 'dd/MM/yyyy HH:mm')}">—</td>
+                    <td th:text="${#temporals.format(lote.fechaVencimiento, 'dd/MM/yyyy')}">—</td>
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${lote.diasHastaVencimiento(hoy)} <= 7 ? 'text-bg-danger' : 'text-bg-success'"
+                              th:text="${lote.diasHastaVencimiento(hoy)} + ' día(s)'">0</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer bg-white text-body-secondary small py-3">
+            <i class="bi bi-info-circle me-1"></i>
+            <span th:text="${#lists.size(lotes)}">0</span> lote(s) vigente(s).
+            Se excluyen lotes agotados y vencidos antes de hoy.
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
