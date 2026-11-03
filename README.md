@@ -3,8 +3,8 @@
 Sistema para una panificadora cuyo objetivo es **evitar quiebres de stock** mediante alertas
 tempranas y control preventivo de inventario.
 
-> Estado actual: **Módulo de Catálogo** implementado de punta a punta (dominio, casos de uso,
-> persistencia, controlador MVC y vistas).
+> Estado actual: **Asignación 3 · Módulo de Inventario (gestión FIFO e ingreso de lotes)**
+> implementado de punta a punta, junto con los módulos de Catálogo, Seguridad y Despacho.
 
 ## Stack
 
@@ -70,6 +70,72 @@ Funcionalidad:
 | POST | `/catalogo/{id}/desactivar` | Baja lógica |
 | POST | `/catalogo/{id}/reactivar` | Reactivación |
 
+## Módulo Inventario · Gestión FIFO e Ingreso de Lotes (Asignación 3)
+
+Implementa la regla **RN-01: primero en vencer, primero en salir**. Los lotes de un insumo se
+consultan siempre por `fecha_vencimiento` ascendente y un ingreso se registra como cabecera
+`MOVIMIENTO` + detalle `LOTE` dentro de una **única transacción**: si falla el detalle, la
+cabecera también se revierte.
+
+### Artefactos
+
+| Artefacto | Ruta |
+|---|---|
+| Entidades | `inventario/domain/model/{Movimiento,Lote,TipoMovimiento}.java` |
+| Excepción de negocio | `inventario/domain/exception/ReglaNegocioException.java` |
+| DTOs | `inventario/application/dto/{IngresoLoteForm,LoteCaducidadView}.java` |
+| Servicio | `inventario/application/service/InventarioService.java` |
+| Repositorios | `inventario/infrastructure/persistence/` |
+| Controlador | `inventario/infrastructure/web/InventarioController.java` |
+| Vistas | `src/main/resources/templates/inventario/{ingreso,lotes,reporte-caducidad}.html` |
+| DDL Oracle | `db/01_schema_oracle.sql` |
+| Datos demo | `catalogo/infrastructure/bootstrap/DatosDemoInitializer.java` |
+
+### Modelo de datos
+
+| Tabla | Columnas principales |
+|---|---|
+| `MOVIMIENTO` | `ID_MOVIMIENTO`, `TIPO_MOVIMIENTO`, `FECHA_MOVIMIENTO`, `ID_PERSONAL`, `OBSERVACION` |
+| `LOTE` | `ID_LOTE`, `ID_MOVIMIENTO`, `ID_INSUMO`, `CODIGO_LOTE`, `CANTIDAD`, `CANTIDAD_DISPONIBLE`, `COSTO_UNITARIO`, `FECHA_INGRESO`, `FECHA_VENCIMIENTO` |
+
+- `LOTE.ID_INSUMO` referencia `CAT_PRODUCTO(ID_PRODUCTO)`; los insumos se toman de la categoría
+  `Insumos`, con fallback a todos los productos activos.
+- Secuencias `INV_MOVIMIENTO_SEQ` e `INV_LOTE_SEQ`.
+- Índice `IDX_LOTE_FIFO (ID_INSUMO, FECHA_VENCIMIENTO)` para soportar el orden FIFO.
+- Restricciones de integridad: cantidad positiva, disponible entre `0` y la cantidad ingresada,
+  fechas obligatorias y tipo de movimiento válido (`INGRESO`, `EGRESO`, `AJUSTE`).
+
+### Funcionalidad
+
+- **Ingreso de lote**: valida insumo activo, cantidad mayor a cero, costo no negativo y
+  vencimiento igual o posterior a hoy; persiste cabecera y detalle de forma transaccional.
+- **Listado FIFO**: lotes vigentes de un insumo (o de todos), excluyendo agotados y vencidos,
+  ordenados estrictamente por vencimiento ascendente con desempate por ID.
+- **Reporte de caducidad**: lotes con saldo que vencen dentro del umbral de días indicado,
+  incluidos los vencidos, con estado `VENCIDO`, `VENCE HOY`, `CRÍTICO`, `POR VENCER` o `VIGENTE`.
+- **Datos demo**: insumo `INS-001` (Harina de trigo) y tres lotes con vencimiento a -2, +10 y
+  +40 días para probar el filtrado, el orden FIFO y el reporte.
+
+### Rutas
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/inventario/ingreso` | Formulario de registro de ingreso |
+| POST | `/inventario/ingreso` | Registra cabecera + lote y redirige al listado |
+| GET | `/inventario/lotes?idInsumo=` | Lotes vigentes en orden FIFO |
+| GET | `/inventario/reporte-caducidad?dias=30` | Reporte de caducidad por umbral |
+
+### Pruebas
+
+```bash
+mvn test
+```
+
+La suite cubre el ordenamiento FIFO y la exclusión de lotes vencidos/agotados
+(`InventarioServiceTest`), la persistencia transaccional de cabecera y detalle
+(`IngresoLoteIntegrationTest`) y el renderizado de las tres vistas
+(`InventarioWebIntegrationTest`).
+
 ## Cómo ejecutarlo
 
 ### Sin Oracle (perfil `demo`, H2 en memoria con datos de ejemplo)
@@ -78,7 +144,7 @@ Funcionalidad:
 mvn spring-boot:run -Dspring-boot.run.profiles=demo
 ```
 
-Luego abrir <http://localhost:8090/catalogo>.
+Luego abrir <http://localhost:8090/catalogo> o <http://localhost:8090/inventario/ingreso>.
 
 ### Con Oracle
 
@@ -94,7 +160,7 @@ Credenciales configurables por variables de entorno: `DB_URL`, `DB_USERNAME`, `D
 
 - [x] Catálogo de productos (CRUD con baja lógica)
 - [ ] CRUD de categorías
-- [ ] Inventario: stock real, movimientos y kardex
+- [x] Inventario: ingreso de lotes, movimientos y listado/reporte FIFO (Asignación 3)
 - [ ] Alertas: comparación stock real vs `stock_minimo` y notificaciones
-- [ ] Despacho: salidas y trazabilidad
-- [ ] Seguridad: usuarios, roles y auditoría
+- [x] Despacho: salidas y trazabilidad
+- [x] Seguridad: usuarios, roles y auditoría

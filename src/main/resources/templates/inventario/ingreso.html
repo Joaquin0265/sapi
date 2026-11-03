@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ingreso de lote | SAPI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" th:href="@{/catalogo}">
+            <i class="bi bi-basket2-fill me-1"></i> SAPI
+        </a>
+        <div class="navbar-nav">
+            <a class="nav-link" th:href="@{/catalogo}">Catálogo</a>
+            <a class="nav-link active" aria-current="page" th:href="@{/inventario/ingreso}">Ingreso de lotes</a>
+            <a class="nav-link" th:href="@{/inventario/lotes}">Lotes FIFO</a>
+            <a class="nav-link" th:href="@{/inventario/reporte-caducidad}">Reporte de caducidad</a>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a class="text-decoration-none" th:href="@{/catalogo}">Catálogo</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Ingreso de lote</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9 col-xl-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5">
+
+                    <h1 class="h4 mb-1">Registrar entrada de lote</h1>
+                    <p class="text-body-secondary mb-4">
+                        La cabecera del movimiento y el lote se guardan en una sola transacción.
+                        Los campos con <span class="text-danger">*</span> son obligatorios.
+                    </p>
+
+                    <form th:action="@{/inventario/ingreso}" th:object="${form}" method="post" novalidate>
+
+                        <div class="alert alert-danger d-flex gap-2" role="alert"
+                             th:if="${#fields.hasGlobalErrors()}">
+                            <i class="bi bi-exclamation-octagon-fill"></i>
+                            <div>
+                                <p class="mb-0" th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+
+                            <div class="col-12">
+                                <label for="idInsumo" class="form-label">
+                                    Insumo <span class="text-danger">*</span>
+                                </label>
+                                <select id="idInsumo" class="form-select"
+                                        th:field="*{idInsumo}" th:errorclass="is-invalid">
+                                    <option value="">— Seleccione un insumo —</option>
+                                    <option th:each="insumo : ${insumos}"
+                                            th:value="${insumo.id}"
+                                            th:text="${insumo.codigo} + ' · ' + ${insumo.nombre}">
+                                        INS-001 · Harina de trigo
+                                    </option>
+                                </select>
+                                <div class="invalid-feedback" th:errors="*{idInsumo}">Insumo inválido</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="codigoLote" class="form-label">Código de lote</label>
+                                <input type="text" id="codigoLote" class="form-control font-monospace"
+                                       th:field="*{codigoLote}" th:errorclass="is-invalid"
+                                       maxlength="40" placeholder="Ej. L-2026-001">
+                                <div class="invalid-feedback" th:errors="*{codigoLote}">Código inválido</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="fechaVencimiento" class="form-label">
+                                    Fecha de vencimiento <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" id="fechaVencimiento" class="form-control"
+                                       th:field="*{fechaVencimiento}" th:errorclass="is-invalid">
+                                <div class="invalid-feedback" th:errors="*{fechaVencimiento}">Fecha inválida</div>
+                                <div class="form-text">Ordena el consumo FIFO del lote.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="cantidad" class="form-label">
+                                    Cantidad <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="cantidad" class="form-control text-end"
+                                       th:field="*{cantidad}" th:errorclass="is-invalid"
+                                       step="0.01" min="0.01" placeholder="0.00">
+                                <div class="invalid-feedback" th:errors="*{cantidad}">Cantidad inválida</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="costoUnitario" class="form-label">Costo unitario (S/)</label>
+                                <input type="number" id="costoUnitario" class="form-control text-end"
+                                       th:field="*{costoUnitario}" th:errorclass="is-invalid"
+                                       step="0.01" min="0" placeholder="0.00">
+                                <div class="invalid-feedback" th:errors="*{costoUnitario}">Costo inválido</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="observacion" class="form-label">Observación</label>
+                                <textarea id="observacion" class="form-control" rows="2"
+                                          th:field="*{observacion}" th:errorclass="is-invalid"
+                                          maxlength="250" placeholder="Proveedor, guía de remisión, observaciones..."></textarea>
+                                <div class="invalid-feedback" th:errors="*{observacion}">Observación inválida</div>
+                            </div>
+
+                            <input type="hidden" th:field="*{idPersonal}">
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+                            <a class="btn btn-outline-secondary order-sm-1" th:href="@{/inventario/lotes}">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button class="btn btn-primary order-sm-2" type="submit">
+                                <i class="bi bi-box-arrow-in-down me-1"></i> Registrar ingreso
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <p class="text-center text-body-secondary small mt-3 mb-0">
+                <i class="bi bi-shield-check me-1"></i>
+                Cabecera y detalle se confirman juntos o se revierten juntos.
+            </p>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
