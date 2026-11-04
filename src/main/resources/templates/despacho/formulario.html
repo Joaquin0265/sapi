@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,12 +11,21 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
-        <span class="navbar-brand fw-semibold">
+        <a class="navbar-brand fw-semibold" th:href="@{/}">
             <i class="bi bi-basket2-fill me-1"></i> SAPI
-        </span>
-        <div class="navbar-nav">
+        </a>
+        <div class="navbar-nav me-auto">
             <a class="nav-link active" aria-current="page" th:href="@{/despacho}">Despacho</a>
         </div>
+        <span class="navbar-text small" sec:authorize="isAuthenticated()">
+            <i class="bi bi-person-circle me-1"></i><span sec:authentication="name">usuario</span>
+        </span>
+        <form class="d-inline ms-lg-3" th:action="@{/logout}" method="post"
+              sec:authorize="isAuthenticated()">
+            <button class="btn btn-sm btn-outline-light" type="submit">
+                <i class="bi bi-box-arrow-right me-1"></i> Salir
+            </button>
+        </form>
     </div>
 </nav>
 
@@ -50,10 +59,20 @@
                                 <option value="">— Seleccione un insumo —</option>
                                 <option th:each="insumo : ${insumos}"
                                         th:value="${insumo.id}"
+                                        th:data-stock="${stockPorInsumo[insumo.id] ?: 0}"
+                                        th:data-unidad="${insumo.unidadMedida.etiqueta}"
                                         th:text="${insumo.codigo} + ' · ' + ${insumo.nombre}">
                                     HAR-001 · Harina Especial
                                 </option>
                             </select>
+                            <div id="stockInsumo"
+                                 class="alert alert-light border d-flex align-items-center gap-2 mt-2 mb-0 py-2 px-3 small"
+                                 role="status" aria-live="polite">
+                                <i class="bi bi-box-seam"></i>
+                                <span id="stockInsumoTexto" class="text-body-secondary">
+                                    Seleccione un insumo para ver su stock disponible.
+                                </span>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -84,6 +103,43 @@
     </div>
 </main>
 
+<script>
+    (function () {
+        const select = document.getElementById('idInsumo');
+        const contenedor = document.getElementById('stockInsumo');
+        const texto = document.getElementById('stockInsumoTexto');
+        const formato = new Intl.NumberFormat('es-PE', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        const CLASE_BASE = 'alert d-flex align-items-center gap-2 mt-2 mb-0 py-2 px-3 small';
+
+        function actualizarStock() {
+            const opcion = select.options[select.selectedIndex];
+
+            if (!opcion || !opcion.value) {
+                contenedor.className = CLASE_BASE + ' alert-light border';
+                texto.className = 'text-body-secondary';
+                texto.textContent = 'Seleccione un insumo para ver su stock disponible.';
+                return;
+            }
+
+            const stock = parseFloat(opcion.dataset.stock || '0') || 0;
+            const unidad = (opcion.dataset.unidad || '').toLowerCase();
+            const sinStock = stock <= 0;
+
+            contenedor.className = CLASE_BASE + (sinStock ? ' alert-danger border-0' : ' alert-success border-0');
+            texto.className = '';
+            texto.textContent = sinStock
+                ? 'Sin stock disponible: no se puede retirar este insumo.'
+                : 'Stock disponible: ' + formato.format(stock) + ' ' + unidad;
+        }
+
+        select.addEventListener('change', actualizarStock);
+        actualizarStock();
+    })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

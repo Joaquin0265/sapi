@@ -51,5 +51,6 @@ public class DespachoController {
 
     private void cargarInsumos(Model model) {
         model.addAttribute("insumos", inventarioService.listarInsumos());
+        model.addAttribute("stockPorInsumo", inventarioService.stockVigentePorInsumo());
     }
 }

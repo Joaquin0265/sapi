@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +69,26 @@ public class InventarioService {
                 .filter(lote -> lote.estaVigente(hoy))
                 .sorted(ORDEN_FIFO)
                 .toList();
+    }
+
+    /**
+     * Stock utilizable por insumo: suma de {@code CANTIDAD_DISPONIBLE} de los
+     * lotes con saldo y no vencidos.
+     *
+     * <p>Es el mismo criterio que usa el módulo de Alertas, de modo que la
+     * pantalla de despacho muestra exactamente el stock que se puede retirar.
+     * Los insumos sin lotes vigentes no aparecen en el mapa; la vista los
+     * interpreta como cero.</p>
+     */
+    public Map<Long, BigDecimal> stockVigentePorInsumo() {
+        LocalDate hoy = LocalDate.now();
+        return loteRepository.findDisponibles().stream()
+                .filter(lote -> lote.estaVigente(hoy))
+                .collect(Collectors.groupingBy(
+                        lote -> lote.getInsumo().getId(),
+                        Collectors.reducing(BigDecimal.ZERO,
+                                Lote::getCantidadDisponible,
+                                BigDecimal::add)));
     }
 
     /**
