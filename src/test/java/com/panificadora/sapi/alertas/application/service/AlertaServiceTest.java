@@ -105,6 +105,34 @@ class AlertaServiceTest {
     }
 
     @Test
+    void lecheEnPolvoConStock10YUmbral15DisparaAlertaRojaYOmiteHistoricoSinSalidas() {
+        Insumo lecheEnPolvo = insumo(6L, "LEC-001", "Leche en polvo", "15.00", "5.00");
+
+        var stockLeche = stock(6L, "10.00");
+
+        when(insumoRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(lecheEnPolvo));
+        when(stockInsumoRepository.stockVigentePorInsumo(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(stockLeche));
+        when(salidaInsumoRepository.salidasDesde(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of());
+
+        AlertaStockView alerta = alertaService.evaluarTodas().get(0);
+
+        assertEquals("LEC-001", alerta.getCodigo());
+        assertEquals("Leche en polvo", alerta.getNombre());
+        assertEquals(NivelAlerta.ROJO, alerta.getNivel(),
+                "Stock actual 10 kg <= umbral mínimo 15 kg debe disparar alerta ROJO.");
+        assertEquals(new BigDecimal("5.00"), alerta.getFaltante(),
+                "Faltante = 15.00 - 10.00 = 5.00 kg.");
+        assertEquals(OrigenSugerencia.REPOSICION_MANUAL, alerta.getOrigenSugerencia(),
+                "Sin salidas en los últimos 7 días debe omitir el cálculo histórico.");
+        assertEquals(new BigDecimal("5.00"), alerta.getCantidadSugerida(),
+                "Reposición manual sugerida = 15.00 - 10.00 = 5.00 kg.");
+        assertNull(alerta.getDiasCobertura());
+        assertNull(alerta.getFechaEstimadaQuiebre());
+    }
+
+    @Test
     void insumoSanitarioSinLotesNiUmbralNoRompeElCalculo() {
         Insumo sal = insumo(5L, "SAL-001", "Sal industrial", null, null);
 

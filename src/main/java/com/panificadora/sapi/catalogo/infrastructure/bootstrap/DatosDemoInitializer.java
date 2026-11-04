@@ -37,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>AZU-001: ámbar, con retiros históricos.</li>
  *   <li>LEV-001: verde, con retiros históricos.</li>
  *   <li>MAN-001: rojo sin retiros en 7 días (reposición manual estándar).</li>
+ *   <li>LEC-001: Leche en polvo en rojo (10 kg stock vs 15 kg umbral, sin salidas en 7 días).</li>
  *   <li>SAL-001: sin umbral configurado.</li>
  * </ul>
  */
@@ -176,6 +177,15 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 .build());
         guardarUmbral(manteca, "15.00", "5.00");
 
+        Insumo lecheEnPolvo = insumoRepository.save(Insumo.builder()
+                .codigo("LEC-001")
+                .nombre("Leche en polvo")
+                .descripcion("Bolsa de 25 kg para panificación y pastelería")
+                .categoria(insumos)
+                .unidadMedida(UnidadMedida.KILOGRAMO)
+                .build());
+        guardarUmbral(lecheEnPolvo, "15.00", "5.00");
+
         // Este insumo queda sin umbral a propósito: la vista debe mostrar
         // "Sin umbral" y permitir configurarlo desde el modal de Catálogo.
         insumoRepository.save(Insumo.builder()
@@ -210,7 +220,9 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 lote(ingresoDemo, buscarInsumo("LEV-001"), "L-LEV-01",
                         "40.00", hoy.plusDays(20)),
                 lote(ingresoDemo, buscarInsumo("MAN-001"), "L-MAN-01",
-                        "8.00", hoy.plusDays(15))
+                        "8.00", hoy.plusDays(15)),
+                lote(ingresoDemo, buscarInsumo("LEC-001"), "L-LEC-01",
+                        "10.00", hoy.plusDays(30))
         );
         loteRepository.saveAll(lotes);
     }
