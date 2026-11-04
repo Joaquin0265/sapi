@@ -3,8 +3,8 @@
 Sistema para una panificadora cuyo objetivo es **evitar quiebres de stock** mediante alertas
 tempranas y control preventivo de inventario.
 
-> Estado actual: **Asignación 3 · Módulo de Inventario (gestión FIFO e ingreso de lotes)**
-> implementado de punta a punta, junto con los módulos de Catálogo, Seguridad y Despacho.
+> Estado actual: **Asignación 5 · Módulo Analítico de Alertas y Sugerencias** implementado
+> de punta a punta, junto con los módulos de Catálogo, Seguridad, Inventario y Despacho.
 
 ## Stack
 
@@ -103,9 +103,10 @@ cabecera también se revierte.
 |---|---|
 | `MOVIMIENTO` | `ID_MOVIMIENTO`, `TIPO_MOVIMIENTO`, `FECHA_MOVIMIENTO`, `ID_PERSONAL`, `OBSERVACION` |
 | `LOTE` | `ID_LOTE`, `ID_MOVIMIENTO`, `ID_INSUMO`, `CODIGO_LOTE`, `CANTIDAD`, `CANTIDAD_DISPONIBLE`, `COSTO_UNITARIO`, `FECHA_INGRESO`, `FECHA_VENCIMIENTO` |
+| `DESPACHO` | `ID_DESPACHO`, `ID_MOVIMIENTO`, `ID_INSUMO`, `CANTIDAD`, `FECHA_HORA` |
 
-- `LOTE.ID_INSUMO` referencia `CAT_PRODUCTO(ID_PRODUCTO)`; los insumos se toman de la categoría
-  `Insumos`, con fallback a todos los productos activos.
+- `LOTE.ID_INSUMO` referencia `CAT_INSUMO(ID_INSUMO)`; el stock se calcula sumando
+  `CANTIDAD_DISPONIBLE` de los lotes vigentes (no vencidos) de cada insumo.
 - Secuencias `INV_MOVIMIENTO_SEQ` e `INV_LOTE_SEQ`.
 - Índice `IDX_LOTE_FIFO (ID_INSUMO, FECHA_VENCIMIENTO)` para soportar el orden FIFO.
 - Restricciones de integridad: cantidad positiva, disponible entre `0` y la cantidad ingresada,
@@ -119,8 +120,9 @@ cabecera también se revierte.
   ordenados estrictamente por vencimiento ascendente con desempate por ID.
 - **Reporte de caducidad**: lotes con saldo que vencen dentro del umbral de días indicado,
   incluidos los vencidos, con estado `VENCIDO`, `VENCE HOY`, `CRÍTICO`, `POR VENCER` o `VIGENTE`.
-- **Datos demo**: insumo `INS-001` (Harina de trigo) y tres lotes con vencimiento a -2, +10 y
-  +40 días para probar el filtrado, el orden FIFO y el reporte.
+- **Datos demo**: cinco insumos con escenarios de semáforo (rojo, ámbar, verde, rojo sin
+  retiros y sin umbral), lotes vigentes y retiros de los últimos 7 días para ejercitar la
+  proyección histórica.
 
 ### Rutas
 
@@ -142,6 +144,80 @@ La suite cubre el ordenamiento FIFO y la exclusión de lotes vencidos/agotados
 (`IngresoLoteIntegrationTest`) y el renderizado de las tres vistas
 (`InventarioWebIntegrationTest`).
 
+## Módulo Despacho · Salidas con FIFO real
+
+El despacho dejó de recibir el stock desde la vista: ahora lee el stock real, valida que
+alcance y descuenta los lotes en orden FIFO dentro de la misma transacción que registra la
+cabecera `MOVIMIENTO(EGRESO)` y el detalle `DESPACHO`. Si falta stock, no se descuenta ningún
+lote ni se persiste el movimiento.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/despacho` | Formulario de salida (insumos activos y stock real) |
+| POST | `/despacho/registrar` | Valida, consume FIFO y registra la trazabilidad |
+
+## Módulo Alertas · Motor Analítico y Sugerencias (Asignación 5)
+
+Motor de alertas inteligentes que compara el **stock real** de cada insumo contra su
+política de reposición y proyecta el consumo con los retiros históricos. Las alertas se
+calculan en cada petición (no se persisten), de modo que un quiebre aparece **de inmediato**
+después de registrar un despacho.
+
+### Reglas implementadas
+
+| Regla | Descripción |
+|---|---|
+| **RN-03 · Semáforo** | `stock_actual − umbral_minimo <= 0` → **ROJO (quiebre)**. `stock <= mínimo × 1.20` → **AMARILLO (por reponer)**. Si supera ese margen → **VERDE**. Sin umbral configurado → **SIN_UMBRAL**. |
+| **RN-04 · Histórico** | Con retiros en los últimos **7 días** se calcula `consumo_diario = salidas / 7` y se proyecta la fecha de quiebre. **Sin retiros no se inventa un promedio**: se devuelve la *reposición manual estándar* (`mínimo − stock`). |
+| **RF-05 · Sugerencia** | La cantidad sugerida cubre un horizonte de **14 días**: `consumo_diario × 14 − stock_actual`, acotada a cero. |
+
+Además, un insumo cuyo saldo está en cero o por debajo de su `stock_critico` se marca con el
+subdistintivo **“Quiebre inminente”**.
+
+### Artefactos
+
+| Artefacto | Ruta |
+|---|---|
+| Modelo de dominio | `alertas/domain/model/{NivelAlerta,OrigenSugerencia,EvaluacionStock,SugerenciaCompra}.java` |
+| Motor | `alertas/application/service/AlertaService.java` |
+| DTOs de vista | `alertas/application/dto/{AlertaStockView,ResumenAlertas}.java` |
+| Repositorios de consulta | `alertas/infrastructure/persistence/{StockInsumoRepository,SalidaInsumoRepository}.java` |
+| Controlador | `alertas/infrastructure/web/AlertaController.java` |
+| Vistas | `templates/alertas/panel.html`, `templates/shared/dashboard.html` |
+| DDL Oracle | `db/05_alertas_oracle.sql` |
+
+### Consultas clave
+
+- **Stock real**: `SUM(LOTE.CANTIDAD_DISPONIBLE)` por insumo, excluyendo lotes vencidos y agotados.
+- **Retiros históricos**: `SUM(DESPACHO.CANTIDAD)` por insumo desde el inicio de la ventana de 7 días.
+- El índice `IX_DESPACHO_INSUMO_FECHA (ID_INSUMO, FECHA_HORA)` soporta la ventana histórica.
+
+### Rutas
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/` | Tablero del administrador con aviso rojo si hay quiebres |
+| GET | `/alertas` | Panel completo de semáforos, proyección y compra sugerida |
+| GET | `/alertas?nivel=ROJO\|AMARILLO\|VERDE\|SIN_UMBRAL` | Panel filtrado por nivel |
+
+El aviso rojo del inicio y el panel `/alertas` están protegidos con la autoridad
+`ADMINISTRADOR`.
+
+### Pruebas
+
+```bash
+mvn test
+```
+
+| Prueba | Qué verifica |
+|---|---|
+| `EvaluacionStockTest` | **Caso exigido RN-03**: con `stock = 10` y `umbral = 15` el quiebre se dispara (`10 − 15 = −5 <= 0`); también el límite exacto (`15 − 15 = 0`). |
+| `SugerenciaCompraTest` | **Caso exigido RN-04**: sin salidas en 7 días omite el cálculo histórico y devuelve `REPOSICION_MANUAL`; con salidas calcula consumo, cobertura y compra a 14 días. |
+| `AlertaServiceTest` | Combinación de stock, umbrales y retiros, orden por severidad y ausencia de umbral. |
+| `AlertaWebIntegrationTest` | **Prueba funcional RF-04**: un retiro artificial que deja `LEV-001` bajo su mínimo enciende el rojo en `/alertas` y el aviso del inicio; el operario recibe 403. |
+| `HomeDashboardTest` | El administrador ve el tablero y el operario es redirigido a `/despacho`. |
+| `DespachoServiceTest` / `DespachoFifoTest` / `DespachoIntegrationTest` | Validación de stock, consumo FIFO real y no persistencia cuando falta stock. |
+
 ## Cómo ejecutarlo
 
 ### Sin Oracle (perfil `demo`, H2 en memoria con datos de ejemplo)
@@ -150,7 +226,15 @@ La suite cubre el ordenamiento FIFO y la exclusión de lotes vencidos/agotados
 mvn spring-boot:run -Dspring-boot.run.profiles=demo
 ```
 
-Luego abrir <http://localhost:8090/catalogo> o <http://localhost:8090/inventario/ingreso>.
+Luego abrir <http://localhost:8090/login> e ingresar con:
+
+| Usuario | Clave | Rol | Qué ve |
+|---|---|---|---|
+| `admin` | `admin123` | `ADMINISTRADOR` | Tablero con aviso rojo, `/alertas`, catálogo e inventario |
+| `operario` | `operario123` | `OPERARIO_ALMACEN` | Formulario de despacho |
+
+El perfil `demo` siembra cinco insumos: uno en rojo (`HAR-001`), uno ámbar (`AZU-001`),
+uno verde (`LEV-001`), uno rojo sin retiros (`MAN-001`) y uno sin umbral (`SAL-001`).
 
 ### Con Oracle
 
@@ -159,8 +243,14 @@ sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/01_schema_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/02_data_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/03_schema_insumos_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/04_data_insumos_oracle.sql
+sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/03_schema_seguridad_oracle.sql
+sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/05_alertas_oracle.sql
 mvn spring-boot:run
 ```
+
+> `05_alertas_oracle.sql` migra `LOTE.ID_INSUMO` de `CAT_PRODUCTO` a `CAT_INSUMO`, crea la
+> tabla `DESPACHO` y su secuencia. **Haga respaldo antes de ejecutarlo** y revise la consulta
+> de control de lotes sin insumo equivalente que incluye el script.
 
 Credenciales configurables por variables de entorno: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`.
 
@@ -169,6 +259,6 @@ Credenciales configurables por variables de entorno: `DB_URL`, `DB_USERNAME`, `D
 - [x] Catálogo de productos (CRUD con baja lógica)
 - [ ] CRUD de categorías
 - [x] Inventario: ingreso de lotes, movimientos y listado/reporte FIFO (Asignación 3)
-- [ ] Alertas: comparación stock real vs `stock_minimo` y notificaciones
-- [x] Despacho: salidas y trazabilidad
+- [x] Alertas: comparación stock real vs `stock_minimo`, semáforo y sugerencias de compra (Asignación 5)
+- [x] Despacho: salidas con descuento FIFO y trazabilidad
 - [x] Seguridad: usuarios, roles y auditoría

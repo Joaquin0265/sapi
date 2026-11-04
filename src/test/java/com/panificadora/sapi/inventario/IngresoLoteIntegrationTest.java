@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.panificadora.sapi.catalogo.domain.model.Categoria;
-import com.panificadora.sapi.catalogo.domain.model.Producto;
+import com.panificadora.sapi.catalogo.domain.model.Insumo;
 import com.panificadora.sapi.catalogo.domain.model.UnidadMedida;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.CategoriaRepository;
-import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.inventario.application.dto.IngresoLoteForm;
 import com.panificadora.sapi.inventario.application.service.InventarioService;
 import com.panificadora.sapi.inventario.domain.exception.ReglaNegocioException;
@@ -48,12 +48,12 @@ class IngresoLoteIntegrationTest {
     private LoteRepository loteRepository;
 
     @Autowired
-    private ProductoRepository productoRepository;
+    private InsumoRepository insumoRepository;
 
     @Autowired
     private CategoriaRepository categoriaRepository;
 
-    private Producto insumo;
+    private Insumo insumo;
 
     @BeforeEach
     void prepararInsumo() {
@@ -63,15 +63,13 @@ class IngresoLoteIntegrationTest {
                         .descripcion("Materia prima de producción")
                         .build()));
 
-        insumo = productoRepository.findByCodigoIgnoreCase(CODIGO_INSUMO_PRUEBA)
-                .orElseGet(() -> productoRepository.save(Producto.builder()
+        insumo = insumoRepository.findByCodigoIgnoreCase(CODIGO_INSUMO_PRUEBA)
+                .orElseGet(() -> insumoRepository.save(Insumo.builder()
                         .codigo(CODIGO_INSUMO_PRUEBA)
                         .nombre("Insumo de prueba transaccional")
                         .descripcion("Creado por la prueba de integración")
                         .categoria(insumos)
                         .unidadMedida(UnidadMedida.KILOGRAMO)
-                        .precio(new BigDecimal("2.50"))
-                        .stockMinimo(new BigDecimal("10.00"))
                         .build()));
     }
 

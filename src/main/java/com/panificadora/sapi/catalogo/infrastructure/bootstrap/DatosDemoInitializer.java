@@ -9,6 +9,8 @@ import com.panificadora.sapi.catalogo.infrastructure.persistence.CategoriaReposi
 import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
 import com.panificadora.sapi.catalogo.infrastructure.persistence.UmbralSeguridadRepository;
+import com.panificadora.sapi.despacho.domain.Despacho;
+import com.panificadora.sapi.despacho.infrastructure.DespachoRepository;
 import com.panificadora.sapi.inventario.domain.model.Lote;
 import com.panificadora.sapi.inventario.domain.model.Movimiento;
 import com.panificadora.sapi.inventario.domain.model.TipoMovimiento;
@@ -27,6 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Datos de ejemplo SOLO para el perfil "demo" (H2 en memoria).
  * En Oracle los datos se cargan con los scripts de {@code /db}.
+ *
+ * <p>Siembra cinco escenarios para que el panel de alertas muestre todos los
+ * semáforos sin tocar la base a mano:</p>
+ * <ul>
+ *   <li>HAR-001: rojo, con retiros históricos (proyección calculada).</li>
+ *   <li>AZU-001: ámbar, con retiros históricos.</li>
+ *   <li>LEV-001: verde, con retiros históricos.</li>
+ *   <li>MAN-001: rojo sin retiros en 7 días (reposición manual estándar).</li>
+ *   <li>SAL-001: sin umbral configurado.</li>
+ * </ul>
  */
 @Component
 @Profile("demo")
@@ -39,6 +51,7 @@ public class DatosDemoInitializer implements CommandLineRunner {
     private final UmbralSeguridadRepository umbralSeguridadRepository;
     private final MovimientoRepository movimientoRepository;
     private final LoteRepository loteRepository;
+    private final DespachoRepository despachoRepository;
 
     @Override
     @Transactional
@@ -49,7 +62,17 @@ public class DatosDemoInitializer implements CommandLineRunner {
         if (insumoRepository.count() == 0) {
             sembrarInsumosYUmbrales();
         }
+        if (loteRepository.count() == 0) {
+            sembrarLotesDemo();
+        }
+        if (despachoRepository.count() == 0) {
+            sembrarSalidasDemo();
+        }
     }
+
+    // ------------------------------------------------------------------
+    // Catálogo de venta
+    // ------------------------------------------------------------------
 
     private void sembrarCatalogoDeVenta() {
         Categoria panaderia = categoriaRepository.save(Categoria.builder()
@@ -63,6 +86,10 @@ public class DatosDemoInitializer implements CommandLineRunner {
         Categoria bebidas = categoriaRepository.save(Categoria.builder()
                 .nombre("Bebidas")
                 .descripcion("Café, jugos y refrescos")
+                .build());
+        categoriaRepository.save(Categoria.builder()
+                .nombre("Insumos")
+                .descripcion("Materia prima de producción")
                 .build());
 
         productoRepository.save(Producto.builder()
@@ -104,74 +131,14 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 .precio(new BigDecimal("3.00"))
                 .stockMinimo(new BigDecimal("10.00"))
                 .build());
-
-        Categoria insumos = categoriaRepository.save(Categoria.builder()
-                .nombre("Insumos")
-                .descripcion("Materia prima de producción")
-                .build());
-
-        Producto harina = productoRepository.save(Producto.builder()
-                .codigo("INS-001")
-                .nombre("Harina de trigo")
-                .descripcion("Saco de 50 kg para producción")
-                .categoria(insumos)
-                .unidadMedida(UnidadMedida.KILOGRAMO)
-                .precio(new BigDecimal("3.20"))
-                .stockMinimo(new BigDecimal("500.00"))
-                .build());
-
-        // Lotes de ejemplo con distintos vencimientos para probar FIFO y caducidad.
-        Movimiento ingresoDemo = movimientoRepository.save(Movimiento.builder()
-                .tipoMovimiento(TipoMovimiento.INGRESO)
-                .fechaMovimiento(LocalDateTime.now())
-                .idPersonal(101L)
-                .observacion("Carga inicial de demostración")
-                .build());
-
-        LocalDate hoy = LocalDate.now();
-        List<Lote> lotesDemo = List.of(
-                Lote.builder()
-                        .movimiento(ingresoDemo)
-                        .insumo(harina)
-                        .codigoLote("L-DEMO-03")
-                        .cantidad(new BigDecimal("50.00"))
-                        .cantidadDisponible(new BigDecimal("50.00"))
-                        .costoUnitario(new BigDecimal("3.10"))
-                        .fechaIngreso(LocalDateTime.now())
-                        .fechaVencimiento(hoy.minusDays(2))
-                        .build(),
-                Lote.builder()
-                        .movimiento(ingresoDemo)
-                        .insumo(harina)
-                        .codigoLote("L-DEMO-01")
-                        .cantidad(new BigDecimal("100.00"))
-                        .cantidadDisponible(new BigDecimal("100.00"))
-                        .costoUnitario(new BigDecimal("3.20"))
-                        .fechaIngreso(LocalDateTime.now())
-                        .fechaVencimiento(hoy.plusDays(10))
-                        .build(),
-                Lote.builder()
-                        .movimiento(ingresoDemo)
-                        .insumo(harina)
-                        .codigoLote("L-DEMO-02")
-                        .cantidad(new BigDecimal("200.00"))
-                        .cantidadDisponible(new BigDecimal("200.00"))
-                        .costoUnitario(new BigDecimal("3.15"))
-                        .fechaIngreso(LocalDateTime.now())
-                        .fechaVencimiento(hoy.plusDays(40))
-                        .build()
-        );
-        loteRepository.saveAll(lotesDemo);
     }
 
+    // ------------------------------------------------------------------
+    // Insumos y umbrales (RF-01 / RF-02)
+    // ------------------------------------------------------------------
+
     private void sembrarInsumosYUmbrales() {
-        Categoria insumos = categoriaRepository.findByActivoTrueOrderByNombreAsc().stream()
-                .filter(c -> "Insumos".equalsIgnoreCase(c.getNombre()))
-                .findFirst()
-                .orElseGet(() -> categoriaRepository.save(Categoria.builder()
-                        .nombre("Insumos")
-                        .descripcion("Materia prima de producción")
-                        .build()));
+        Categoria insumos = buscarCategoriaInsumos();
 
         Insumo harina = insumoRepository.save(Insumo.builder()
                 .codigo("HAR-001")
@@ -210,7 +177,7 @@ public class DatosDemoInitializer implements CommandLineRunner {
         guardarUmbral(manteca, "15.00", "5.00");
 
         // Este insumo queda sin umbral a propósito: la vista debe mostrar
-        // "Sin configurar" y permitir crearlo desde el modal.
+        // "Sin umbral" y permitir configurarlo desde el modal de Catálogo.
         insumoRepository.save(Insumo.builder()
                 .codigo("SAL-001")
                 .nombre("Sal industrial")
@@ -218,6 +185,101 @@ public class DatosDemoInitializer implements CommandLineRunner {
                 .categoria(insumos)
                 .unidadMedida(UnidadMedida.KILOGRAMO)
                 .build());
+    }
+
+    // ------------------------------------------------------------------
+    // Lotes demo (stock actual)
+    // ------------------------------------------------------------------
+
+    private void sembrarLotesDemo() {
+        Movimiento ingresoDemo = movimientoRepository.save(Movimiento.builder()
+                .tipoMovimiento(TipoMovimiento.INGRESO)
+                .fechaMovimiento(LocalDateTime.now())
+                .idPersonal(101L)
+                .observacion("Carga inicial de demostración")
+                .build());
+
+        LocalDate hoy = LocalDate.now();
+        List<Lote> lotes = List.of(
+                lote(ingresoDemo, buscarInsumo("HAR-001"), "L-HAR-03",
+                        "12.00", hoy.plusDays(10)),
+                lote(ingresoDemo, buscarInsumo("HAR-001"), "L-HAR-02",
+                        "18.00", hoy.plusDays(30)),
+                lote(ingresoDemo, buscarInsumo("AZU-001"), "L-AZU-01",
+                        "33.00", hoy.plusDays(25)),
+                lote(ingresoDemo, buscarInsumo("LEV-001"), "L-LEV-01",
+                        "40.00", hoy.plusDays(20)),
+                lote(ingresoDemo, buscarInsumo("MAN-001"), "L-MAN-01",
+                        "8.00", hoy.plusDays(15))
+        );
+        loteRepository.saveAll(lotes);
+    }
+
+    // ------------------------------------------------------------------
+    // Retiros históricos demo (alimentan RN-04 / RF-05)
+    // ------------------------------------------------------------------
+
+    private void sembrarSalidasDemo() {
+        Insumo harina = buscarInsumo("HAR-001");
+        Insumo azucar = buscarInsumo("AZU-001");
+        Insumo levadura = buscarInsumo("LEV-001");
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (int dias = 6; dias >= 0; dias--) {
+            LocalDateTime fecha = ahora.minusDays(dias);
+            Movimiento egreso = movimientoRepository.save(Movimiento.builder()
+                    .tipoMovimiento(TipoMovimiento.EGRESO)
+                    .fechaMovimiento(fecha)
+                    .idPersonal(101L)
+                    .observacion("Salidas de producción (demo)")
+                    .build());
+
+            despachoRepository.save(despacho(egreso, harina, "5.00", fecha));
+            despachoRepository.save(despacho(egreso, azucar, "2.00", fecha));
+            despachoRepository.save(despacho(egreso, levadura, "1.00", fecha));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Apoyo
+    // ------------------------------------------------------------------
+
+    private Categoria buscarCategoriaInsumos() {
+        return categoriaRepository.findByNombreIgnoreCase("Insumos")
+                .orElseGet(() -> categoriaRepository.save(Categoria.builder()
+                        .nombre("Insumos")
+                        .descripcion("Materia prima de producción")
+                        .build()));
+    }
+
+    private Insumo buscarInsumo(String codigo) {
+        return insumoRepository.findByCodigoIgnoreCase(codigo)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Falta el insumo demo " + codigo + "."));
+    }
+
+    private Lote lote(Movimiento movimiento, Insumo insumo, String codigo,
+                      String cantidad, LocalDate vencimiento) {
+        return Lote.builder()
+                .movimiento(movimiento)
+                .insumo(insumo)
+                .codigoLote(codigo)
+                .cantidad(new BigDecimal(cantidad))
+                .cantidadDisponible(new BigDecimal(cantidad))
+                .costoUnitario(new BigDecimal("3.00"))
+                .fechaIngreso(movimiento.getFechaMovimiento())
+                .fechaVencimiento(vencimiento)
+                .build();
+    }
+
+    private Despacho despacho(Movimiento movimiento, Insumo insumo,
+                              String cantidad, LocalDateTime fecha) {
+        return Despacho.builder()
+                .movimiento(movimiento)
+                .insumo(insumo)
+                .cantidad(new BigDecimal(cantidad))
+                .fechaHora(fecha)
+                .build();
     }
 
     private void guardarUmbral(Insumo insumo, String minimo, String critico) {

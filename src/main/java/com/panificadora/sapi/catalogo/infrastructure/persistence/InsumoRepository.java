@@ -24,5 +24,7 @@ public interface InsumoRepository extends JpaRepository<Insumo, Long> {
     @EntityGraph(attributePaths = {"categoria", "umbral"})
     Optional<Insumo> findByIdAndActivoTrue(Long id);
 
+    Optional<Insumo> findByCodigoIgnoreCase(String codigo);
+
     boolean existsByCodigoIgnoreCase(String codigo);
 }

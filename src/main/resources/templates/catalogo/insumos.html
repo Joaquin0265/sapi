@@ -28,7 +28,11 @@
                         Insumos y umbrales
                     </a>
                 </li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/inventario/ingreso}">Inventario</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/despacho}">Despacho</a></li>
+                <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
+                    <a class="nav-link" th:href="@{/alertas}">Alertas</a>
+                </li>
             </ul>
             <span class="navbar-text small" sec:authorize="isAuthenticated()">
                 <i class="bi bi-person-circle me-1"></i><span sec:authentication="name">usuario</span>
@@ -192,10 +196,10 @@
                         <button type="button" class="btn btn-sm btn-outline-primary"
                                 th:attr="data-bs-target=|#umbralModal-${i.id}|"
                                 data-bs-toggle="modal"
-                                sec:authorize="hasAuthority('Administrador')">
+                                sec:authorize="hasAuthority('ADMINISTRADOR')">
                             <i class="bi bi-sliders me-1"></i> Configurar umbral
                         </button>
-                        <span class="text-body-secondary small" sec:authorize="!hasAuthority('Administrador')">
+                        <span class="text-body-secondary small" sec:authorize="!hasAuthority('ADMINISTRADOR')">
                             <i class="bi bi-lock me-1"></i>Solo el propietario
                         </span>
                     </td>
@@ -213,7 +217,7 @@
 </main>
 
 <!-- ===================== Modales (uno por insumo, solo Administrador) ===================== -->
-<th:block sec:authorize="hasAuthority('Administrador')">
+<th:block sec:authorize="hasAuthority('ADMINISTRADOR')">
 <div th:each="i : ${insumos}" class="modal fade"
      th:id="|umbralModal-${i.id}|" tabindex="-1"
      th:attr="aria-labelledby=|umbralModalLabel-${i.id}|" aria-hidden="true">

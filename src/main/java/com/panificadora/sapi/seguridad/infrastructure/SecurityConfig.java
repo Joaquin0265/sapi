@@ -31,6 +31,7 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/css/**", "/js/**", "/login").permitAll()
+                .requestMatchers("/alertas/**").hasAuthority("ADMINISTRADOR")
                 .requestMatchers("/configurar-umbral", "/catalogo/insumos/*/umbral").hasAuthority("ADMINISTRADOR")
                 .requestMatchers("/catalogo/**").hasAuthority("ADMINISTRADOR")
                 .requestMatchers("/despacho/**").hasAuthority("OPERARIO_ALMACEN")
@@ -54,15 +55,9 @@ public class SecurityConfig {
             @Override
             public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                                 Authentication authentication) throws IOException, ServletException {
-                // Redirección inteligente según el rol del usuario autenticado
-                boolean isAdmin = authentication.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals("ADMINISTRADOR"));
-
-                if (isAdmin) {
-                    response.sendRedirect("/catalogo");
-                } else {
-                    response.sendRedirect("/despacho");
-                }
+                // El inicio decide según el rol: tablero para el administrador y
+                // despacho para el operario de almacén.
+                response.sendRedirect("/");
             }
         };
     }

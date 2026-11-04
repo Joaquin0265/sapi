@@ -15,5 +15,5 @@ public interface PersonalRepository extends JpaRepository<Personal, Long> {
 
     Optional<Personal> findByDniAndActivo(String dni, Integer activo);
 
-    Optional<Personal> findByIdAndActivo(Long id, Integer activo);
+    Optional<Personal> findByIdPersonalAndActivo(Long idPersonal, Integer activo);
 }

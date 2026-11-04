@@ -1,6 +1,6 @@
 package com.panificadora.sapi.inventario.domain.model;
 
-import com.panificadora.sapi.catalogo.domain.model.Producto;
+import com.panificadora.sapi.catalogo.domain.model.Insumo;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -57,14 +57,14 @@ public class Lote {
     )
     private Movimiento movimiento;
 
-    /** El insumo es un producto del catálogo (categoría "Insumos"). */
+    /** Insumo del catálogo que se vigila con umbrales de seguridad (módulo Alertas). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "ID_INSUMO",
             nullable = false,
             foreignKey = @ForeignKey(name = "FK_LOTE_INSUMO")
     )
-    private Producto insumo;
+    private Insumo insumo;
 
     @Column(name = "CODIGO_LOTE", length = 40)
     private String codigoLote;

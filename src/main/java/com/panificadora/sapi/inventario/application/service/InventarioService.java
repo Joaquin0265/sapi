@@ -1,7 +1,7 @@
 package com.panificadora.sapi.inventario.application.service;
 
-import com.panificadora.sapi.catalogo.domain.model.Producto;
-import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
+import com.panificadora.sapi.catalogo.domain.model.Insumo;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.inventario.application.dto.IngresoLoteForm;
 import com.panificadora.sapi.inventario.application.dto.LoteCaducidadView;
 import com.panificadora.sapi.inventario.domain.exception.ReglaNegocioException;
@@ -32,11 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class InventarioService {
 
-    private static final String CATEGORIA_INSUMOS = "Insumos";
-
     private final MovimientoRepository movimientoRepository;
     private final LoteRepository loteRepository;
-    private final ProductoRepository productoRepository;
+    private final InsumoRepository insumoRepository;
 
     private static final Comparator<Lote> ORDEN_FIFO = Comparator
             .comparing(Lote::getFechaVencimiento)
@@ -113,8 +111,7 @@ public class InventarioService {
     public Movimiento registrarIngreso(IngresoLoteForm form) {
         validarIngreso(form);
 
-        Producto insumo = productoRepository.findById(form.getIdInsumo())
-                .filter(Producto::estaActivo)
+        Insumo insumo = insumoRepository.findByIdAndActivoTrue(form.getIdInsumo())
                 .orElseThrow(() -> new ReglaNegocioException(
                         "El insumo seleccionado no existe o está inactivo."));
 
@@ -145,22 +142,64 @@ public class InventarioService {
         return movimiento;
     }
 
+    /**
+     * Descuenta stock consumiendo los lotes en orden FIFO (RN-01).
+     *
+     * <p>Los lotes vencidos se saltan porque no son stock utilizable. Si al
+     * recorrer todos los lotes todavía queda cantidad pendiente, se lanza
+     * {@link ReglaNegocioException} y la transacción completa se revierte.</p>
+     */
+    @Transactional
+    public void consumirFifo(Long idInsumo, BigDecimal cantidad) {
+        if (idInsumo == null) {
+            throw new ReglaNegocioException("Debe indicar el insumo a consumir.");
+        }
+        if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ReglaNegocioException("La cantidad a consumir debe ser mayor a cero.");
+        }
+
+        LocalDate hoy = LocalDate.now();
+        List<Lote> lotes = loteRepository.findDisponiblesPorInsumo(idInsumo).stream()
+                .filter(lote -> !lote.getFechaVencimiento().isBefore(hoy))
+                .sorted(ORDEN_FIFO)
+                .toList();
+
+        // Primera pasada: se valida el total antes de tocar cualquier lote.
+        // Así un retiro inválido no deja lotes decrementados en el contexto de
+        // persistencia, aunque la transacción luego se revierta.
+        BigDecimal disponibleTotal = lotes.stream()
+                .map(Lote::getCantidadDisponible)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (disponibleTotal.compareTo(cantidad) < 0) {
+            throw new ReglaNegocioException(
+                    "Stock insuficiente: faltan "
+                            + cantidad.subtract(disponibleTotal).stripTrailingZeros().toPlainString()
+                            + " unidades para completar el retiro.");
+        }
+
+        // Segunda pasada: consumo FIFO real.
+        BigDecimal pendiente = cantidad;
+        for (Lote lote : lotes) {
+            if (pendiente.signum() <= 0) {
+                break;
+            }
+            BigDecimal disponible = lote.getCantidadDisponible();
+            BigDecimal consumido = disponible.min(pendiente);
+            lote.setCantidadDisponible(disponible.subtract(consumido));
+            pendiente = pendiente.subtract(consumido);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Apoyo
     // ------------------------------------------------------------------
 
     /**
-     * Insumos activos: los de la categoría "Insumos" si existe; si no, todos
-     * los productos activos para no bloquear la operación en bases nuevas.
+     * Insumos activos del catálogo, ordenados por nombre. Son la única fuente
+     * de verdad para el ingreso de lotes y las alertas de stock.
      */
-    public List<Producto> listarInsumos() {
-        List<Producto> activos = productoRepository.findByActivoTrueOrderByNombreAsc();
-        List<Producto> insumos = activos.stream()
-                .filter(producto -> producto.getCategoria() != null
-                        && producto.getCategoria().getNombre() != null
-                        && producto.getCategoria().getNombre().equalsIgnoreCase(CATEGORIA_INSUMOS))
-                .toList();
-        return insumos.isEmpty() ? activos : insumos;
+    public List<Insumo> listarInsumos() {
+        return insumoRepository.findByActivoTrueOrderByNombreAsc();
     }
 
     private void validarIngreso(IngresoLoteForm form) {

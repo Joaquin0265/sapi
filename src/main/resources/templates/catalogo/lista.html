@@ -21,13 +21,16 @@
         </button>
         <div class="collapse navbar-collapse" id="navPrincipal">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link active" aria-current="page" href="#">Catálogo</a></li>
+                <li class="nav-item"><a class="nav-link active" aria-current="page" th:href="@{/catalogo}">Catálogo</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/catalogo/insumos}">Insumos y umbrales</a></li>
-                <li class="nav-item"><a class="nav-link disabled" href="#">Inventario</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/inventario/ingreso}">Inventario</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/despacho}">Despacho</a></li>
+                <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
+                    <a class="nav-link" th:href="@{/alertas}">Alertas</a>
+                </li>
 
                 <!-- Botón protegido: abre la configuración de umbrales de seguridad -->
-                <li class="nav-item" sec:authorize="hasAuthority('Administrador')">
+                <li class="nav-item" sec:authorize="hasAuthority('ADMINISTRADOR')">
                     <a class="nav-link text-warning fw-bold" th:href="@{/catalogo/insumos}">
                         Configurar Umbral de Seguridad
                     </a>

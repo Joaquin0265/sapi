@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
-import com.panificadora.sapi.catalogo.infrastructure.persistence.ProductoRepository;
+import com.panificadora.sapi.catalogo.infrastructure.persistence.InsumoRepository;
 import com.panificadora.sapi.inventario.domain.exception.ReglaNegocioException;
 import com.panificadora.sapi.inventario.domain.model.Lote;
 import com.panificadora.sapi.inventario.infrastructure.persistence.LoteRepository;
@@ -35,7 +35,7 @@ class InventarioServiceTest {
     private LoteRepository loteRepository;
 
     @Mock
-    private ProductoRepository productoRepository;
+    private InsumoRepository insumoRepository;
 
     @InjectMocks
     private InventarioService inventarioService;
