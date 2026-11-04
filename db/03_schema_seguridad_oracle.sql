@@ -58,9 +58,9 @@ VALUES (2, '70654321', 'Juan', 'Almacenero', 'operario@sapi.com', 1);
 
 -- Usuarios de prueba con contraseñas encriptadas en BCrypt (admin123 y operario123)
 INSERT INTO SEG_USUARIO (ID_USUARIO, ID_PERSONAL, ID_ROL, NOMBRE_USUARIO, CLAVE_ENCRIPTADA, ACTIVO) 
-VALUES (1, 1, 1, 'admin', '$2a$10$hKDVYxLefV75igVqEafpt.rQO31Jj8g2.Q31a6E9P.YQn3/h32Hce', 1);
+VALUES (1, 1, 1, 'admin', '$2a$10$QO6iePcBXoBSUKHMce5DjuQeKvoPoFNb0mVUKo1WAta4CrA.tZeBK', 1);
 
 INSERT INTO SEG_USUARIO (ID_USUARIO, ID_PERSONAL, ID_ROL, NOMBRE_USUARIO, CLAVE_ENCRIPTADA, ACTIVO) 
-VALUES (2, 2, 2, 'operario', '$2a$10$hKDVYxLefV75igVqEafpt.rQO31Jj8g2.Q31a6E9P.YQn3/h32Hce', 1);
+VALUES (2, 2, 2, 'operario', '$2a$10$g3PBjGx6BGSc5W6xSUVEruyQ/Q/oXgi27PuZeTNGsAB6YFfiXB0Qu', 1);
 
 COMMIT;
