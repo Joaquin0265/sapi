@@ -63,9 +63,13 @@
                                 </label>
                                 <input type="text" id="codigo" class="form-control font-monospace text-uppercase"
                                        th:field="*{codigo}" th:errorclass="is-invalid"
+                                       th:readonly="${form.id != null}"
                                        maxlength="20" placeholder="PAN-001">
                                 <div class="invalid-feedback" th:errors="*{codigo}">Código inválido</div>
-                                <div class="form-text">Se guarda en mayúsculas.</div>
+                                <div class="form-text"
+                                     th:text="${form.id == null} ? 'Se guarda en mayúsculas.' : 'El código no se puede modificar al editar.'">
+                                    Se guarda en mayúsculas.
+                                </div>
                             </div>
 
                             <!-- Nombre -->

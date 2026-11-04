@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .requestMatchers("/alertas/**").hasAuthority("ADMINISTRADOR")
                 .requestMatchers("/configurar-umbral", "/catalogo/insumos/*/umbral").hasAuthority("ADMINISTRADOR")
                 .requestMatchers("/catalogo/**").hasAuthority("ADMINISTRADOR")
-                .requestMatchers("/despacho/**").hasAuthority("OPERARIO_ALMACEN")
+                .requestMatchers("/despacho/**").hasAnyAuthority("ADMINISTRADOR", "OPERARIO_ALMACEN")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

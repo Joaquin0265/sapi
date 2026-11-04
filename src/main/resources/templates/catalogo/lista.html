@@ -39,6 +39,12 @@
             <span class="navbar-text small">
                 <i class="bi bi-person-circle me-1"></i> Panificadora Santa Rosa de Barranca
             </span>
+            <form class="d-inline ms-lg-3" th:action="@{/logout}" method="post"
+                  sec:authorize="isAuthenticated()">
+                <button class="btn btn-sm btn-outline-light" type="submit">
+                    <i class="bi bi-box-arrow-right me-1"></i> Salir
+                </button>
+            </form>
         </div>
     </div>
 </nav>
