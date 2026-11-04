@@ -245,12 +245,17 @@ sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/03_schema_insumos_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/04_data_insumos_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/03_schema_seguridad_oracle.sql
 sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/05_alertas_oracle.sql
+sqlplus SAPI/sapi@//localhost:1521/XEPDB1 @db/06_fix_claves_seguridad_oracle.sql
 mvn spring-boot:run
 ```
 
 > `05_alertas_oracle.sql` migra `LOTE.ID_INSUMO` de `CAT_PRODUCTO` a `CAT_INSUMO`, crea la
 > tabla `DESPACHO` y su secuencia. **Haga respaldo antes de ejecutarlo** y revise la consulta
 > de control de lotes sin insumo equivalente que incluye el script.
+
+> `06_fix_claves_seguridad_oracle.sql` corrige los hashes BCrypt de `admin` y `operario`.
+> Solo es imprescindible si la base ya existía con una versión anterior del script de
+> seguridad; en una instalación nueva los hashes ya vienen bien.
 
 Credenciales configurables por variables de entorno: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`.
 
